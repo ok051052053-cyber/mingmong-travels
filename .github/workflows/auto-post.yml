@@ -30,6 +30,6 @@ jobs:
         run: |
           git config user.name "bot"
           git config user.email "bot@github.com"
-          git add .
+          git add posts.json sitemap.xml posts/*
           git commit -m "auto post"
           git push
