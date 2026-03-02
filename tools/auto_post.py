@@ -31,13 +31,16 @@ MODEL = os.environ.get("MODEL", "gpt-4o-mini").strip()
 IMG_COUNT = 6
 HTTP_TIMEOUT = 25
 
-# 이미지 생성은 문단과 1:1 매칭
+# 이미지: 무료(Wikimedia) 먼저, 실패/부적합이면 OpenAI로 "무조건" 생성
 IMAGE_PROVIDER = os.environ.get("IMAGE_PROVIDER", "openai").strip().lower()
 IMAGE_MODEL = os.environ.get("IMAGE_MODEL", "gpt-image-1").strip()
 IMAGE_SIZE = os.environ.get("IMAGE_SIZE", "1536x864").strip()
 
 # 기존 이미지 재생성
-FORCE_REGEN_IMAGES = os.environ.get("FORCE_REGEN_IMAGES", "0").strip() in ("1", "true", "True")
+FORCE_REGEN_IMAGES = os.environ.get("FORCE_REGEN_IMAGES", "0").strip().lower() in ("1", "true", "yes", "y")
+
+if not OPENAI_API_KEY:
+    raise SystemExit("OPENAI_API_KEY is missing")
 
 client = OpenAI(api_key=OPENAI_API_KEY)
 
@@ -171,6 +174,9 @@ def choose_internal_links(existing_posts, current_slug, k=2):
     return out
 
 
+# -----------------------------
+# Networking / Images (Wikimedia + OpenAI generate fallback)
+# -----------------------------
 def download_file(url: str, out_path: Path):
     r = requests.get(url, timeout=HTTP_TIMEOUT, stream=True, headers=UA, allow_redirects=True)
     r.raise_for_status()
@@ -181,6 +187,10 @@ def download_file(url: str, out_path: Path):
 
 
 def wikimedia_image_url(query: str):
+    """
+    Wikimedia Commons에서 '사진(=JPEG)'만 가져오도록 제한
+    SVG/아이콘/로고로 빠지는 경우를 크게 줄임
+    """
     q = (query or "").strip()
     if not q:
         return None
@@ -191,38 +201,85 @@ def wikimedia_image_url(query: str):
         "format": "json",
         "generator": "search",
         "gsrsearch": q,
-        "gsrlimit": 1,
+        "gsrlimit": 8,
+        "gsrnamespace": 6,         # File:
+        "gsrsort": "relevance",
         "prop": "imageinfo",
-        "iiprop": "url",
+        "iiprop": "url|mime",
         "iiurlwidth": 1600,
     }
+
     r = requests.get(api, params=params, timeout=HTTP_TIMEOUT, headers=UA)
     r.raise_for_status()
     j = r.json()
+
     pages = (j.get("query") or {}).get("pages") or {}
+    candidates = []
+
     for _, p in pages.items():
         info = (p.get("imageinfo") or [])
-        if info:
-            return info[0].get("thumburl") or info[0].get("url")
-    return None
+        if not info:
+            continue
+        mime = (info[0].get("mime") or "").lower()
+        if mime not in ("image/jpeg", "image/jpg"):
+            continue
+
+        url = info[0].get("thumburl") or info[0].get("url")
+        if url:
+            candidates.append(url)
+
+    return candidates[0] if candidates else None
 
 
-# -----------------------------
-# Placeholder
-# -----------------------------
-def write_svg_placeholder(path: Path):
-    svg = """<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
-  <defs>
-    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#e0f2fe"/>
-      <stop offset="1" stop-color="#f0f9ff"/>
-    </linearGradient>
-  </defs>
-  <rect width="1600" height="900" rx="48" fill="url(#g)"/>
-  <rect x="120" y="120" width="1360" height="660" rx="36" fill="white" opacity="0.55"/>
-</svg>
-"""
-    path.write_text(svg, encoding="utf-8")
+def is_image_ok(file_path: Path) -> bool:
+    # 12KB 이하면 대부분 "빈 파일 / HTML / 에러 이미지"라 걸러짐
+    try:
+        return file_path.exists() and file_path.stat().st_size > 12_000
+    except Exception:
+        return False
+
+
+def generate_image_openai(prompt: str, out_path: Path):
+    """
+    문단 컨텍스트(prompt)를 기반으로
+    실제 블로그용 '사진 느낌' 이미지 생성
+    """
+    p = (prompt or "").strip()
+    if not p:
+        p = "clean modern lifestyle photo, minimal, premium, natural light, no text"
+
+    final_prompt = f"""
+Create a photorealistic premium blog image that matches the content below.
+
+Rules:
+- No text, no captions, no watermarks, no logos.
+- Photorealistic, natural lighting, high resolution.
+- Clean modern premium blog style.
+
+Content to match:
+{p}
+""".strip()
+
+    res = client.images.generate(
+        model=IMAGE_MODEL,
+        prompt=final_prompt,
+        size=IMAGE_SIZE,
+        output_format="jpeg",
+    )
+
+    data0 = res.data[0]
+    b64 = getattr(data0, "b64_json", None)
+    url = getattr(data0, "url", None)
+
+    if b64:
+        out_path.write_bytes(base64.b64decode(b64))
+        return
+
+    if url:
+        download_file(url, out_path)
+        return
+
+    raise RuntimeError("OpenAI image response has no b64_json and no url")
 
 
 # -----------------------------
@@ -237,6 +294,7 @@ def sanitize_body_html(body_html: str) -> str:
 
     s = s.replace("```html", "").replace("```", "")
 
+    # 혹시 GPT가 wrapper를 넣으면 제거
     s = re.sub(r"^\s*<div\s+class=[\"']prose[\"']\s*>\s*", "", s, flags=re.IGNORECASE)
     s = re.sub(r"\s*</div>\s*$", "", s, flags=re.IGNORECASE)
 
@@ -247,6 +305,7 @@ def sanitize_body_html(body_html: str) -> str:
 # Marker distribution
 # -----------------------------
 def distribute_missing_markers(body_html: str) -> str:
+    # 중복 마커 제거
     for i in range(1, IMG_COUNT + 1):
         m = f"<!--IMG{i}-->"
         parts = body_html.split(m)
@@ -279,7 +338,7 @@ def distribute_missing_markers(body_html: str) -> str:
 
 
 # -----------------------------
-# Extract text after marker
+# Extract text after marker (이미지-문단 매칭)
 # -----------------------------
 def strip_tags_keep_text(s: str) -> str:
     s = re.sub(r"<[^>]+>", " ", s or "")
@@ -313,56 +372,15 @@ def context_after_marker(body_html: str, marker: str, max_chars: int = 520) -> s
 
 
 # -----------------------------
-# Image generation (OpenAI)
+# Images: 반드시 JPG로 채움 (SVG placeholder 금지)
 # -----------------------------
-def generate_image_openai(prompt: str, out_path: Path):
-    p = (prompt or "").strip()
-    if not p:
-        p = "clean modern lifestyle photo, minimal, premium, natural light, no text"
-
-    final_prompt = f"""
-Create a photorealistic premium blog image that matches the content.
-No text.
-No captions.
-No watermarks.
-No logos.
-Style: clean modern.
-Natural lighting.
-High resolution.
-Content to match:
-{p}
-""".strip()
-
-    res = client.images.generate(
-        model=IMAGE_MODEL,
-        prompt=final_prompt,
-        size=IMAGE_SIZE,
-        output_format="jpeg",
-    )
-
-    data0 = res.data[0]
-    b64 = getattr(data0, "b64_json", None)
-    url = getattr(data0, "url", None)
-
-    if b64:
-        out_path.write_bytes(base64.b64decode(b64))
-        return
-
-    if url:
-        download_file(url, out_path)
-        return
-
-    raise RuntimeError("OpenAI image response has no b64_json and no url")
-
-
-def is_image_ok(file_path: Path) -> bool:
-    try:
-        return file_path.exists() and file_path.stat().st_size > 12_000
-    except Exception:
-        return False
-
-
 def ensure_images_text_matched(slug: str, body_html_with_markers: str):
+    """
+    절대 SVG placeholder 없음
+    1) Wikimedia에서 연관 JPEG 찾기
+    2) 없거나 실패하면 OpenAI로 무조건 생성해서 JPG 채움
+    3) OpenAI까지 실패하면 에러로 중단 (파란칸 방지)
+    """
     folder = ASSETS_POSTS_DIR / slug
     folder.mkdir(parents=True, exist_ok=True)
 
@@ -371,11 +389,9 @@ def ensure_images_text_matched(slug: str, body_html_with_markers: str):
     for i in range(IMG_COUNT):
         n = i + 1
         jpg_path = folder / f"{n}.jpg"
-        svg_path = folder / f"{n}.svg"
 
         if FORCE_REGEN_IMAGES:
             jpg_path.unlink(missing_ok=True)
-            svg_path.unlink(missing_ok=True)
 
         if jpg_path.exists() and is_image_ok(jpg_path):
             paths_for_post_page.append(f"../assets/posts/{slug}/{n}.jpg")
@@ -384,43 +400,35 @@ def ensure_images_text_matched(slug: str, body_html_with_markers: str):
         marker = f"<!--IMG{n}-->"
         ctx = context_after_marker(body_html_with_markers, marker, max_chars=520)
 
-        ok = False
+        q = (ctx[:140] or "").strip()
+        if not q:
+            q = slug.replace("-", " ")[:80]
 
-        # 1) 무료 이미지 먼저 (Wikimedia)
+        got = False
+
+        # 1) 무료 이미지 (Wikimedia)
         try:
-            q = (ctx[:140] or "").strip()
-            if not q:
-                q = slug.replace("-", " ")[:80]
-
             free_url = wikimedia_image_url(q)
             if free_url:
                 download_file(free_url, jpg_path)
                 if is_image_ok(jpg_path):
-                    ok = True
+                    got = True
                 else:
                     jpg_path.unlink(missing_ok=True)
         except Exception:
-            ok = False
+            got = False
 
-        # 2) 무료가 실패하면 OpenAI 생성
-        if not ok and IMAGE_PROVIDER == "openai":
-            try:
-                generate_image_openai(ctx, jpg_path)
-                if is_image_ok(jpg_path):
-                    ok = True
-                else:
-                    jpg_path.unlink(missing_ok=True)
-                    ok = False
-            except Exception:
-                ok = False
+        # 2) 무료가 별로면 OpenAI 생성 (무조건)
+        if not got and IMAGE_PROVIDER == "openai":
+            generate_image_openai(ctx, jpg_path)
+            if not is_image_ok(jpg_path):
+                raise RuntimeError(f"OpenAI image generation produced an invalid file: {slug}/{n}.jpg")
+            got = True
 
-        # 3) 둘 다 실패하면 placeholder
-        if ok and is_image_ok(jpg_path):
-            paths_for_post_page.append(f"../assets/posts/{slug}/{n}.jpg")
-        else:
-            write_svg_placeholder(svg_path)
-            paths_for_post_page.append(f"../assets/posts/{slug}/{n}.svg")
+        if not got:
+            raise RuntimeError(f"Failed to fetch or generate image: {slug}/{n}.jpg")
 
+        paths_for_post_page.append(f"../assets/posts/{slug}/{n}.jpg")
         time.sleep(0.2)
 
     return paths_for_post_page
@@ -505,6 +513,7 @@ def build_post_html(
     body_html = sanitize_body_html(body_html)
     body_html = distribute_missing_markers(body_html)
 
+    # marker -> image tags
     for idx in range(IMG_COUNT):
         marker = f"<!--IMG{idx+1}-->"
         if marker in body_html:
@@ -699,11 +708,14 @@ def create_post_from_item(item, existing_posts):
 
     body_html = sanitize_body_html(body_html)
 
+    # 마커 하나도 없으면 강제 추가
     if not re.search(r"<!--IMG[1-6]-->", body_html):
         body_html = body_html + "\n" + "\n".join([f"<!--IMG{i}-->" for i in range(1, IMG_COUNT + 1)]) + "\n"
 
+    # 마커가 빠져도 균등 보정
     body_html = distribute_missing_markers(body_html)
 
+    # 이미지: 반드시 JPG로 채움
     image_srcs = ensure_images_text_matched(slug, body_html)
 
     description = make_meta_description(keyword, item.get("source", ""))
@@ -722,7 +734,8 @@ def create_post_from_item(item, existing_posts):
 
     (POSTS_DIR / f"{slug}.html").write_text(html_doc, encoding="utf-8")
 
-    thumb = image_srcs[0].replace("../", "", 1) if image_srcs else f"assets/posts/{slug}/1.svg"
+    # 홈 썸네일은 assets/... 로 저장
+    thumb = image_srcs[0].replace("../", "", 1) if image_srcs else f"assets/posts/{slug}/1.jpg"
 
     new_item = {
         "slug": slug,
@@ -737,9 +750,6 @@ def create_post_from_item(item, existing_posts):
 
 
 def main():
-    if not OPENAI_API_KEY:
-        raise SystemExit("OPENAI_API_KEY is missing")
-
     ensure_dirs()
     existing = load_posts_json()
 
@@ -753,14 +763,10 @@ def main():
     for it in items:
         if created >= POSTS_PER_RUN:
             break
-        try:
-            new_item = create_post_from_item(it, existing + new_posts)
-            new_posts.append(new_item)
-            created += 1
-            print("CREATED:", new_item["slug"])
-        except Exception as e:
-            print("SKIP (error):", str(e))
-            continue
+        new_item = create_post_from_item(it, existing + new_posts)
+        new_posts.append(new_item)
+        created += 1
+        print("CREATED:", new_item["slug"])
 
     if not new_posts:
         raise SystemExit("No posts created")
