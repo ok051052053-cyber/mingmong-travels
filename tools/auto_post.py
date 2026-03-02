@@ -109,7 +109,6 @@ def rss_url_for_query(q: str) -> str:
 
 
 def fetch_rss_items():
-    # 너무 과격한 표현은 줄이고 클릭은 나오는 키워드들로 구성
     queries = [
         "backlash controversy trending",
         "lawsuit investigation recall",
@@ -135,7 +134,6 @@ def fetch_rss_items():
                 items.append({"title": title, "link": link, "source": source})
         time.sleep(0.35)
 
-    # dedupe
     seen = set()
     uniq = []
     for it in items:
@@ -163,7 +161,6 @@ def choose_internal_links(existing_posts, current_slug, k=2):
 # Image helpers
 # -----------------------------
 def write_svg_placeholder(path: Path):
-    # 텍스트 없는 플레이스홀더
     svg = """<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
   <defs>
     <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
@@ -219,22 +216,23 @@ def ensure_images(slug: str, img_queries):
     folder = ASSETS_POSTS_DIR / slug
     folder.mkdir(parents=True, exist_ok=True)
 
-    paths = []
+    # posts/*.html 에서 쓰는 경로는 ../assets/... (현재 구조 기준)
+    paths_for_post_page = []
+
     for i in range(IMG_COUNT):
         q = (img_queries[i] if i < len(img_queries) else img_queries[-1]).strip()
         jpg_path = folder / f"{i+1}.jpg"
         svg_path = folder / f"{i+1}.svg"
 
         if jpg_path.exists():
-            paths.append(f"../assets/posts/{slug}/{i+1}.jpg")
+            paths_for_post_page.append(f"../assets/posts/{slug}/{i+1}.jpg")
             continue
         if svg_path.exists():
-            paths.append(f"../assets/posts/{slug}/{i+1}.svg")
+            paths_for_post_page.append(f"../assets/posts/{slug}/{i+1}.svg")
             continue
 
         ok = False
 
-        # 1) Wikimedia
         try:
             url = wikimedia_image_url(q)
             if url:
@@ -243,7 +241,6 @@ def ensure_images(slug: str, img_queries):
         except Exception:
             ok = False
 
-        # 2) Unsplash source (redirect가 걸려도 다운로드가 되도록)
         if not ok:
             try:
                 url = unsplash_source_url(q)
@@ -253,18 +250,17 @@ def ensure_images(slug: str, img_queries):
                 ok = False
 
         if ok:
-            paths.append(f"../assets/posts/{slug}/{i+1}.jpg")
+            paths_for_post_page.append(f"../assets/posts/{slug}/{i+1}.jpg")
         else:
             write_svg_placeholder(svg_path)
-            paths.append(f"../assets/posts/{slug}/{i+1}.svg")
+            paths_for_post_page.append(f"../assets/posts/{slug}/{i+1}.svg")
 
         time.sleep(0.25)
 
-    return paths
+    return paths_for_post_page
 
 
 def build_image_block(src: str, alt: str):
-    # 캡션/문구 완전 제거
     return f"""
 <figure class="photo" style="margin:18px 0;">
   <img src="{src}" alt="{safe_text(alt)}" loading="lazy" />
@@ -273,15 +269,34 @@ def build_image_block(src: str, alt: str):
 
 
 # -----------------------------
+# Body sanitize (핵심)
+# -----------------------------
+def sanitize_body_html(body_html: str) -> str:
+    """
+    GPT가 ```html ... ``` 코드블록으로 주면 제거해서 실제 HTML로 렌더되게 함
+    그리고 <div class="prose"> 같은 바깥 래퍼도 제거
+    """
+    s = (body_html or "").strip()
+
+    # ```html ... ``` 또는 ``` ... ``` 제거
+    if s.startswith("```"):
+        s = re.sub(r"^```[a-zA-Z]*\s*", "", s)
+        s = re.sub(r"\s*```$", "", s)
+
+    # 혹시 중간에 남아있는 fence도 제거
+    s = s.replace("```html", "").replace("```", "")
+
+    # 바깥에 <div class="prose">가 또 있으면 제거
+    s = re.sub(r"^\s*<div\s+class=[\"']prose[\"']\s*>\s*", "", s, flags=re.IGNORECASE)
+    s = re.sub(r"\s*</div>\s*$", "", s, flags=re.IGNORECASE)
+
+    return s.strip()
+
+
+# -----------------------------
 # Body marker distribution
 # -----------------------------
 def distribute_missing_markers(body_html: str) -> str:
-    """
-    GPT가 IMG 마커를 빼먹으면 균등 분배해서 끼워 넣는다.
-    - <p> 단위로 쪼개서 삽입
-    - 마커는 1~6 각각 1회씩만 존재하게 보정
-    """
-    # remove duplicates first
     for i in range(1, IMG_COUNT + 1):
         m = f"<!--IMG{i}-->"
         parts = body_html.split(m)
@@ -293,21 +308,16 @@ def distribute_missing_markers(body_html: str) -> str:
     if not missing:
         return body_html
 
-    # split by </p>
     chunks = re.split(r"(</p\s*>\s*)", body_html, flags=re.IGNORECASE)
-    # chunks: [text, </p>, text, </p>, ...]
-    # find paragraph end indices where we can insert
     p_end_positions = []
     for idx in range(1, len(chunks), 2):
         p_end_positions.append(idx)
 
     if not p_end_positions:
-        # no <p>, just append evenly with separators
         for i in missing:
             body_html += f"\n<p></p>\n<!--IMG{i}-->\n"
         return body_html
 
-    # choose insertion points evenly
     n_p = len(p_end_positions)
     for j, img_i in enumerate(missing):
         pos = int((j + 1) * n_p / (len(missing) + 1))
@@ -345,7 +355,7 @@ Hard requirements
 - The FIRST paragraph must include the exact keyword once: "{keyword}"
 - Include these sections: Practical tips, Quick checklist, FAQ (3-5 questions)
 - Tone: clean, modern, helpful. Not salesy.
-- Do NOT write any image captions or labels like "Context image" or "Placeholder image".
+- Do NOT wrap your answer in markdown code fences like ```html
 
 Image placement markers
 - Insert each marker exactly once
@@ -418,10 +428,9 @@ def build_post_html(
 ):
     today = now_utc_date()
 
-    # marker 보정
+    body_html = sanitize_body_html(body_html)
     body_html = distribute_missing_markers(body_html)
 
-    # marker -> images
     for idx in range(IMG_COUNT):
         marker = f"<!--IMG{idx+1}-->"
         if marker in body_html:
@@ -452,7 +461,6 @@ def build_post_html(
 <a href="{safe_text(b['slug'])}.html"><span>{safe_text(b['title'])}</span><small>Guide</small></a>
 """.strip()
 
-    # NOTE: nav 중복 Home 버튼 제거 (Home 링크만 남김)
     html_doc = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -615,13 +623,16 @@ def create_post_from_item(item, existing_posts):
     )
     body_html = (res.choices[0].message.content or "").strip()
 
-    # 마커 누락 대비: 일단 보정 로직이 균등 분배해주지만
-    # 아예 하나도 없을 경우를 대비해서 기본 마커도 넣어둠
     if not re.search(r"<!--IMG[1-6]-->", body_html):
         body_html = body_html + "\n" + "\n".join([f"<!--IMG{i}-->" for i in range(1, IMG_COUNT + 1)]) + "\n"
 
     img_queries = pick_image_queries(keyword, title)
     image_srcs = ensure_images(slug, img_queries)
+
+    # 홈/카테고리에서 쓸 썸네일 경로 (루트 기준)
+    # ensure_images는 posts 페이지용 ../assets/... 를 반환하니
+    # 여기서는 assets/... 로 저장
+    thumb = image_srcs[0].replace("../", "", 1) if image_srcs else f"assets/posts/{slug}/1.svg"
 
     description = make_meta_description(keyword, item.get("source", ""))
 
@@ -646,6 +657,7 @@ def create_post_from_item(item, existing_posts):
         "category": category,
         "date": now_utc_date(),
         "views": 0,
+        "thumbnail": thumb,
     }
     return new_item
 
