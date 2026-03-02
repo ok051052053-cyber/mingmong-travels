@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Category | MingMong</title>
+  <meta name="description" content="Browse posts by category on MingMong." />
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+
+<header class="topbar">
+  <div class="container topbar-inner">
+    <a class="brand" href="index.html">
+      <span class="mark" aria-hidden="true"></span>
+      <span>MingMong</span>
+    </a>
+
+    <nav class="nav" aria-label="Primary">
+      <a href="index.html">Home</a>
+      <a href="about.html">About</a>
+      <a href="contact.html">Contact</a>
+      <a class="btn primary" href="index.html">Home</a>
+    </nav>
+  </div>
+</header>
+
+<main class="container">
+
+  <section class="hero">
+    <p class="breadcrumb"><a href="index.html">Home</a> | <span id="catName">Category</span></p>
+    <h1 class="h1" id="catTitle">Category</h1>
+    <p class="lead" id="catLead">Browse posts.</p>
+  </section>
+
+  <section class="layout">
+    <article class="card article">
+      <h2 id="listTitle">Posts</h2>
+      <p class="lead" id="listLead">Filtered list.</p>
+      <hr class="hr" />
+      <div id="cat-list"></div>
+    </article>
+
+    <aside class="sidebar">
+      <div class="card sidebox">
+        <h4>Quick jump</h4>
+        <div class="cat-list" role="list" style="margin-top:10px;">
+          <a class="cat-item" role="listitem" href="category.html?cat=Trends%20%26%20News">
+            <span class="cat-icon" aria-hidden="true">📰</span>
+            <span class="cat-text">
+              <span class="cat-title">Trends & News</span>
+              <span class="cat-sub">Culture, work, travel, modern life</span>
+            </span>
+          </a>
+
+          <a class="cat-item" role="listitem" href="category.html?cat=Cool%20Finds">
+            <span class="cat-icon" aria-hidden="true">✨</span>
+            <span class="cat-text">
+              <span class="cat-title">Cool Finds</span>
+              <span class="cat-sub">Tools, gear, products worth using</span>
+            </span>
+          </a>
+        </div>
+      </div>
+
+      <div class="card related">
+        <h4>Hot now!</h4>
+        <div id="hot-now"></div>
+        <p class="tiny-note">Sorted by views from posts.json</p>
+      </div>
+    </aside>
+  </section>
+
+</main>
+
+<footer class="footer">
+  <div class="container">
+    <div>© 2026 MingMong</div>
+    <div class="footer-links">
+      <a href="privacy.html">Privacy</a>
+      <a href="about.html">About</a>
+      <a href="contact.html">Contact</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function () {
+  function getParam(name) {
+    const u = new URL(window.location.href);
+    return u.searchParams.get(name) || "";
+  }
+
+  const cat = getParam("cat") || "Trends & News";
+
+  document.getElementById("catName").textContent = cat;
+  document.getElementById("catTitle").textContent = cat;
+
+  const leadMap = {
+    "Trends & News": "Latest trends and breaking stories with practical takeaways.",
+    "Cool Finds": "Tools, gear, and apps that people are actually switching to."
+  };
+  document.getElementById("catLead").textContent = leadMap[cat] || "Browse posts.";
+
+  const listTitle = cat === "Cool Finds" ? "Cool Finds" : "Trends & News";
+  document.getElementById("listTitle").textContent = listTitle;
+  document.getElementById("listLead").textContent = "Updated daily. New posts are added automatically.";
+
+  fetch("posts.json", { cache: "no-store" })
+    .then(r => r.json())
+    .then(posts => {
+      const wrap = document.getElementById("cat-list");
+      const filtered = posts.filter(p => (p.category || "").trim() === cat);
+
+      function imgUrlFor(p) {
+        return `assets/posts/${p.slug}/1.jpg`;
+      }
+
+      function postCard(p) {
+        const href = `posts/${p.slug}.html`;
+        const thumb = imgUrlFor(p);
+
+        return `
+          <a class="post-card" href="${href}">
+            <div class="thumb" style="background-image:url('${thumb}')" aria-hidden="true"></div>
+            <div>
+              <div class="kicker">${p.category || "Article"}</div>
+              <div class="post-title">${p.title}</div>
+              <p class="post-desc">${p.description || ""}</p>
+            </div>
+          </a>
+        `;
+      }
+
+      wrap.innerHTML = filtered.length
+        ? filtered.sort((a,b) => (b.date || "").localeCompare(a.date || "")).map(postCard).join("")
+        : `<p class="lead">No posts yet in this category.</p>`;
+
+      const hotWrap = document.getElementById("hot-now");
+      const hot = [...posts].sort((a,b) => (b.views || 0) - (a.views || 0));
+      hotWrap.innerHTML = hot.slice(0, 5).map(p => {
+        const href = `posts/${p.slug}.html`;
+        const v = (p.views || 0).toLocaleString();
+        return `<a class="hot-link" href="${href}"><span>${p.title}</span><span class="hot-views">${v}</span></a>`;
+      }).join("");
+    });
+})();
+</script>
+
+</body>
+</html>
