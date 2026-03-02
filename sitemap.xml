@@ -1,7 +1,56 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-<url><loc>https://ok051052053-cyber.github.io/mingmong-travels/</loc></url>
-<url><loc>https://ok051052053-cyber.github.io/mingmong-travels/posts/quiet-luxury-lifestyle-2026.html</loc></url>
-<url><loc>https://ok051052053-cyber.github.io/mingmong-travels/posts/carry-less-travel-kit-20s.html</loc></url>
-<url><loc>https://ok051052053-cyber.github.io/mingmong-travels/posts/focus-stack-digital-nomads.html</loc></url>
+
+  <!-- Homepage -->
+  <url>
+    <loc>https://ok051052053-cyber.github.io/mingmong-travels/</loc>
+    <lastmod>2026-03-02</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>
+
+  <!-- Core Pages -->
+  <url>
+    <loc>https://ok051052053-cyber.github.io/mingmong-travels/about.html</loc>
+    <lastmod>2026-03-02</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <url>
+    <loc>https://ok051052053-cyber.github.io/mingmong-travels/contact.html</loc>
+    <lastmod>2026-03-02</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <url>
+    <loc>https://ok051052053-cyber.github.io/mingmong-travels/privacy.html</loc>
+    <lastmod>2026-03-02</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.5</priority>
+  </url>
+
+  <!-- Posts -->
+  <url>
+    <loc>https://ok051052053-cyber.github.io/mingmong-travels/posts/quiet-luxury-lifestyle-2026.html</loc>
+    <lastmod>2026-03-02</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+
+  <url>
+    <loc>https://ok051052053-cyber.github.io/mingmong-travels/posts/carry-less-travel-kit-20s.html</loc>
+    <lastmod>2026-03-02</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+
+  <url>
+    <loc>https://ok051052053-cyber.github.io/mingmong-travels/posts/focus-stack-digital-nomads.html</loc>
+    <lastmod>2026-03-02</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+
 </urlset>
