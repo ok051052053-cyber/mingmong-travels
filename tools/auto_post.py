@@ -23,16 +23,15 @@ ASSETS_POSTS_DIR = ROOT / "assets" / "posts"
 POSTS_JSON = ROOT / "posts.json"
 
 SITE_NAME = os.environ.get("SITE_NAME", "MingMong").strip()
-POSTS_PER_RUN = int(os.environ.get("POSTS_PER_RUN", "5"))
+POSTS_PER_RUN = int(os.environ.get("POSTS_PER_RUN", "3"))
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "").strip()
-
 MODEL = os.environ.get("MODEL", "gpt-4o-mini").strip()
 
-# 이미지 개수 고정 6
+# 이미지 6장 고정
 IMG_COUNT = 6
 
-# 요청 타임아웃
 HTTP_TIMEOUT = 20
+USER_AGENT = "mingmong-bot/1.0"
 
 client = OpenAI(api_key=OPENAI_API_KEY)
 
@@ -42,6 +41,15 @@ client = OpenAI(api_key=OPENAI_API_KEY)
 # -----------------------------
 def now_utc_date():
     return datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+
+def safe_text(s: str):
+    return html.escape(s or "", quote=True)
+
+
+def ensure_dirs():
+    POSTS_DIR.mkdir(parents=True, exist_ok=True)
+    ASSETS_POSTS_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def load_posts_json():
@@ -54,74 +62,58 @@ def save_posts_json(posts):
     POSTS_JSON.write_text(json.dumps(posts, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
-def ensure_dirs():
-    POSTS_DIR.mkdir(parents=True, exist_ok=True)
-    ASSETS_POSTS_DIR.mkdir(parents=True, exist_ok=True)
-
-
 def clean_title(t):
     t = re.sub(r"\s+", " ", (t or "").strip())
     return t[:140].strip()
 
 
-def title_with_number_or_year(title, category):
-    # 숫자 또는 연도 없으면 강제 삽입
-    has_digit = bool(re.search(r"\d", title))
-    if has_digit:
-        return title
+def title_force_number_or_year(title: str, category: str):
+    # 제목에 숫자/연도 없으면 강제 삽입
+    if re.search(r"\d", title or ""):
+        return title.strip()
 
-    if "cool" in category.lower():
-        return f"5 Things About {title} (2026)"
-    return f"2026: {title}"
+    cat = (category or "").lower()
+    if "guide" in cat:
+        return f"2026: How to {title.strip()}"
+    if "cool" in cat:
+        return f"5 Things About {title.strip()} (2026)"
+    return f"2026: {title.strip()}"
 
 
-def make_meta_description(keyword, source_name):
-    base = f"{keyword}. What happened. Why it matters right now. What you should do next."
-    if source_name:
-        base += f" Source: {source_name}."
+def make_meta_description(keyword: str):
+    # 너무 뉴스틱하게 “사건사고”로 몰지 않고
+    # AdSense/SEO에 무난한 형태
+    base = f"{keyword}. What it is. Why it matters. Practical tips you can use in 2026."
     return base[:155]
 
 
-def safe_text(s):
-    return html.escape(s or "", quote=True)
-
-
-def pick_category_for_item(title):
-    t = (title or "").lower()
-    cool_keys = ["iphone", "android", "chip", "ai", "gadget", "phone", "laptop", "app", "tool", "review", "camera", "tesla", "meta", "openai", "google", "samsung"]
-    if any(k in t for k in cool_keys):
-        return "Cool Finds"
-    return "Trends & News"
+def choose_internal_links(existing_posts, current_slug, k=2):
+    candidates = [p for p in existing_posts if p.get("slug") and p.get("slug") != current_slug]
+    random.shuffle(candidates)
+    picks = candidates[:k]
+    out = []
+    for p in picks:
+        out.append({"slug": p["slug"], "title": p.get("title", p["slug"])})
+    return out
 
 
 def rss_url_for_query(q):
-    # Google News RSS
-    # q 는 너무 길면 실패할 수 있어 줄임
     q = (q or "").strip()[:120]
     qp = urllib.parse.quote(q)
     return f"https://news.google.com/rss/search?q={qp}&hl=en-US&gl=US&ceid=US:en"
 
 
-def fetch_rss_items():
-    # “클릭 유도형” 주제. 사건사고 느낌이지만 안전한 범위에서
-    queries = [
-        "controversy backlash boycott trending",
-        "data breach leak lawsuit scandal",
-        "product recall safety warning investigation",
-        "AI tool feature launch 2026",
-        "smartphone camera leak 2026",
-    ]
-
+def fetch_rss_items(queries, per_query=10):
     items = []
     for q in queries:
         url = rss_url_for_query(q)
         feed = feedparser.parse(url)
-        for e in feed.entries[:10]:
+        for e in feed.entries[:per_query]:
             title = clean_title(getattr(e, "title", ""))
             link = getattr(e, "link", "")
             source = ""
             try:
-                source = e.source.title  # some feeds have this
+                source = e.source.title
             except Exception:
                 source = ""
             if title and link:
@@ -132,7 +124,7 @@ def fetch_rss_items():
     seen = set()
     uniq = []
     for it in items:
-        k = it["title"].lower()
+        k = (it["title"] or "").lower()
         if k in seen:
             continue
         seen.add(k)
@@ -142,57 +134,18 @@ def fetch_rss_items():
     return uniq
 
 
-def choose_internal_links(existing_posts, current_slug, k=2):
-    # posts.json에서 다른 글 2개
-    candidates = [p for p in existing_posts if p.get("slug") and p.get("slug") != current_slug]
-    random.shuffle(candidates)
-    picks = candidates[:k]
-    # 없으면 빈 리스트
-    out = []
-    for p in picks:
-        out.append({
-            "slug": p["slug"],
-            "title": p.get("title", p["slug"]),
-        })
-    return out
-
-
-def build_image_block(src, alt):
-    # figcaption 제거. 문구 없음
-    return f"""
-<figure class="photo" style="margin:18px 0;">
-  <img src="{src}" alt="{safe_text(alt)}" loading="lazy" />
-</figure>
-""".strip()
-
-
-def write_svg_placeholder(path: Path, title: str):
-    # 외부 다운로드 실패해도 빈칸 방지
-    t = (title or "MingMong").strip()
-    t = t[:40]
-    svg = f"""<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
-  <defs>
-    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#e0f2fe"/>
-      <stop offset="1" stop-color="#f0f9ff"/>
-    </linearGradient>
-  </defs>
-  <rect width="1600" height="900" rx="48" fill="url(#g)"/>
-  <rect x="120" y="120" width="1360" height="660" rx="36" fill="white" opacity="0.65"/>
-  <text x="160" y="240" font-family="ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial" font-size="54" font-weight="800" fill="#0f172a">
-    {html.escape(t)}
-  </text>
-  <text x="160" y="320" font-family="ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial" font-size="30" font-weight="650" fill="#6b7280">
-    Image placeholder
-  </text>
-</svg>
-"""
-    path.write_text(svg, encoding="utf-8")
+def pick_category_for_news_title(title: str):
+    t = (title or "").lower()
+    cool_keys = [
+        "iphone", "android", "chip", "ai", "gadget", "phone", "laptop", "app",
+        "tool", "review", "camera", "tesla", "meta", "openai", "google", "samsung"
+    ]
+    if any(k in t for k in cool_keys):
+        return "Cool Finds"
+    return "Trends & News"
 
 
 def wikimedia_image_url(query):
-    # Wikimedia Commons 검색
-    # 실패율 낮음
     api = "https://commons.wikimedia.org/w/api.php"
     params = {
         "action": "query",
@@ -204,20 +157,19 @@ def wikimedia_image_url(query):
         "iiprop": "url",
         "iiurlwidth": 1600,
     }
-    r = requests.get(api, params=params, timeout=HTTP_TIMEOUT, headers={"User-Agent": "mingmong-bot/1.0"})
+    r = requests.get(api, params=params, timeout=HTTP_TIMEOUT, headers={"User-Agent": USER_AGENT})
     r.raise_for_status()
     j = r.json()
     pages = (j.get("query") or {}).get("pages") or {}
     for _, p in pages.items():
         info = (p.get("imageinfo") or [])
         if info:
-            # 원본 url or thumburl
             return info[0].get("thumburl") or info[0].get("url")
     return None
 
 
 def download_file(url, out_path: Path):
-    r = requests.get(url, timeout=HTTP_TIMEOUT, stream=True, headers={"User-Agent": "mingmong-bot/1.0"})
+    r = requests.get(url, timeout=HTTP_TIMEOUT, stream=True, headers={"User-Agent": USER_AGENT})
     r.raise_for_status()
     with out_path.open("wb") as f:
         for chunk in r.iter_content(chunk_size=1024 * 128):
@@ -225,8 +177,31 @@ def download_file(url, out_path: Path):
                 f.write(chunk)
 
 
+def write_svg_placeholder(path: Path, title: str):
+    # “Context image.” 같은 문구가 HTML에 뜨는 게 아니라
+    # 이미지 자체(placeholder) 안에만 들어가게 함
+    t = (title or "MingMong").strip()[:48]
+    svg = f"""<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#e0f2fe"/>
+      <stop offset="1" stop-color="#f0f9ff"/>
+    </linearGradient>
+  </defs>
+  <rect width="1600" height="900" rx="48" fill="url(#g)"/>
+  <rect x="120" y="140" width="1360" height="620" rx="36" fill="white" opacity="0.7"/>
+  <text x="160" y="270" font-family="ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial" font-size="54" font-weight="850" fill="#0f172a">
+    {html.escape(t)}
+  </text>
+  <text x="160" y="350" font-family="ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial" font-size="30" font-weight="650" fill="#6b7280">
+    Placeholder image
+  </text>
+</svg>
+"""
+    path.write_text(svg, encoding="utf-8")
+
+
 def ensure_images(slug, img_queries):
-    # assets/posts/<slug>/1..6.(jpg|svg)
     folder = ASSETS_POSTS_DIR / slug
     folder.mkdir(parents=True, exist_ok=True)
 
@@ -236,7 +211,6 @@ def ensure_images(slug, img_queries):
         jpg_path = folder / f"{i+1}.jpg"
         svg_path = folder / f"{i+1}.svg"
 
-        # 이미 있으면 재사용
         if jpg_path.exists():
             paths.append(f"../assets/posts/{slug}/{i+1}.jpg")
             continue
@@ -244,7 +218,6 @@ def ensure_images(slug, img_queries):
             paths.append(f"../assets/posts/{slug}/{i+1}.svg")
             continue
 
-        # 다운로드 시도
         ok = False
         try:
             url = wikimedia_image_url(q)
@@ -265,49 +238,189 @@ def ensure_images(slug, img_queries):
     return paths
 
 
-def build_post_html(
-    slug,
-    keyword,
-    title,
-    category,
-    description,
-    source_link,
-    internal_links,
-    body_html,
-    image_srcs,
-):
-    today = now_utc_date()
+def build_image_block(src, alt):
+    # figcaption 자체를 안 씀 (문구 제거)
+    return f"""
+<figure class="photo" style="margin:18px 0;">
+  <img src="{src}" alt="{safe_text(alt)}" loading="lazy" />
+</figure>
+""".strip()
 
-    # 이미지 마커를 본문에 삽입
-    # body_html 안에는 <!--IMG1--> ... <!--IMG6--> 가 들어있어야 함
-    for idx in range(IMG_COUNT):
-        marker = f"<!--IMG{idx+1}-->"
-        body_html = body_html.replace(marker, build_image_block(image_srcs[idx], f"{keyword} image {idx+1}"))
 
-    # 내부링크 2개는 본문에도 1번, 하단 related에도 1번 정도 분산
-    inline_links_html = ""
+def inject_images_evenly(body_html: str, image_srcs, keyword: str):
+    """
+    모델이 마커를 이상하게 배치해도 상관없게
+    <p> 단위로 잘라서 6장을 균등 분배로 강제 삽입
+    """
+    ps = re.findall(r"<p\b[^>]*>.*?</p>", body_html, flags=re.DOTALL | re.IGNORECASE)
+    if len(ps) < 8:
+        # 너무 짧으면 그냥 끝에라도 분배 삽입
+        ps = ps + ["<p></p>"] * (8 - len(ps))
+
+    # 삽입 위치: 문단 전체 길이에 따라 균등
+    total = len(ps)
+    # 앞에 1~2문단 지나고 시작
+    anchors = []
+    for i in range(IMG_COUNT):
+        # 0..5 -> 0.15..0.95 정도 지점
+        pos = int(round((i + 1) * total / (IMG_COUNT + 1)))
+        pos = max(1, min(total - 1, pos))
+        anchors.append(pos)
+
+    # 중복 제거 및 정렬
+    anchors = sorted(set(anchors))
+    # anchors가 6개 미만이면 뒤에서 채움
+    while len(anchors) < IMG_COUNT:
+        anchors.append(min(total - 1, anchors[-1] + 1))
+        anchors = sorted(set(anchors))
+
+    out = []
+    img_i = 0
+    for idx, p in enumerate(ps):
+        out.append(p)
+        if img_i < IMG_COUNT and idx == anchors[img_i]:
+            out.append(build_image_block(image_srcs[img_i], f"{keyword} image {img_i+1}"))
+            img_i += 1
+
+    # 본문에 p 외의 다른 태그(h2/h3/ul 등)도 남겨야 해서
+    # p만 재구성하면 손실이 생김 -> 안전하게 “첫 p부터 마지막 p까지” 구간만 치환
+    if ps:
+        first = ps[0]
+        last = ps[-1]
+        start = body_html.find(first)
+        end = body_html.rfind(last)
+        if start != -1 and end != -1:
+            end = end + len(last)
+            body_html = body_html[:start] + "\n".join(out) + body_html[end:]
+        else:
+            body_html = "\n".join(out)
+
+    # 이미지 다 못 넣었으면 뒤에라도 추가
+    while img_i < IMG_COUNT:
+        body_html += "\n" + build_image_block(image_srcs[img_i], f"{keyword} image {img_i+1}")
+        img_i += 1
+
+    return body_html
+
+
+def make_body_prompt_news(keyword, title, category, internal_links):
+    link_hints = ""
     if len(internal_links) >= 2:
         a = internal_links[0]
         b = internal_links[1]
-        inline_links_html = f"""
-<hr class="hr" />
-<p><strong>Related on {safe_text(SITE_NAME)}:</strong>
-  <a href="{safe_text(a['slug'])}.html">{safe_text(a['title'])}</a>
-  and
-  <a href="{safe_text(b['slug'])}.html">{safe_text(b['title'])}</a>.
-</p>
+        link_hints = f"""
+Internal links you MUST include naturally (exact anchors):
+- <a href="{a['slug']}.html">{safe_text(a['title'])}</a>
+- <a href="{b['slug']}.html">{safe_text(b['title'])}</a>
 """.strip()
 
+    prompt = f"""
+You are writing for a premium blog called {SITE_NAME} for people in their 10s to 30s.
+
+Topic keyword: {keyword}
+Category: {category}
+Final page title: {title}
+
+Hard requirements
+- Output ONLY valid HTML that goes inside <div class="prose">. No <html>, no <head>, no <body>.
+- Use only: <h2>, <h3>, <p>, <ul>, <li>, <hr>, <strong>, <a>
+- FIRST paragraph must include the exact keyword once: "{keyword}"
+- No image captions. Do not write "Image:" "Context image" or similar.
+- Include: practical tips, quick checklist, FAQ (3-5 questions)
+- Do not claim you read the source directly. Write as a general explainer.
+
+SEO structure
+- Intro (2 paragraphs)
+- 4-6 sections explaining: what it is, why it matters, what changes in 2026, what to do next
+- Quick checklist
+- FAQ
+- Short next steps ending
+
+{link_hints}
+
+Write 1200-1600 words.
+"""
+    return prompt.strip()
+
+
+def make_body_prompt_guide(keyword, title, internal_links):
+    link_hints = ""
+    if len(internal_links) >= 2:
+        a = internal_links[0]
+        b = internal_links[1]
+        link_hints = f"""
+Internal links you MUST include naturally (exact anchors):
+- <a href="{a['slug']}.html">{safe_text(a['title'])}</a>
+- <a href="{b['slug']}.html">{safe_text(b['title'])}</a>
+""".strip()
+
+    prompt = f"""
+You are writing for a premium SEO guide blog called {SITE_NAME} for people in their 10s to 30s.
+
+Topic keyword: {keyword}
+Final page title: {title}
+
+Hard requirements
+- Output ONLY valid HTML that goes inside <div class="prose">. No <html>, no <head>, no <body>.
+- Use only: <h2>, <h3>, <p>, <ul>, <li>, <hr>, <strong>, <a>
+- FIRST paragraph must include the exact keyword once: "{keyword}"
+- No image captions. Do not write "Image:" "Context image" or similar.
+- Include: practical tips, quick checklist, FAQ (3-5 questions)
+
+SEO structure
+- Intro (2 paragraphs)
+- Step-by-step sections with clear actions
+- Mistakes to avoid
+- Quick checklist
+- FAQ
+- Short summary
+
+{link_hints}
+
+Write 1400-1900 words.
+"""
+    return prompt.strip()
+
+
+def pick_image_queries(keyword, title, category):
+    # 6장 검색어: 너무 구체적으로 안 가고 실패율 낮게
+    base = keyword[:80]
+    if "guide" in (category or "").lower():
+        return [
+            f"{base} concept",
+            f"{base} workspace or routine",
+            f"{base} phone screen settings",
+            f"{base} checklist notes",
+            f"{base} city lifestyle",
+            f"{base} minimal design",
+        ]
+    # Trends/Cool
+    return [
+        f"{base} news concept",
+        f"{base} social media",
+        f"{base} people discussion",
+        f"{base} technology product",
+        f"{base} headline board",
+        f"{base} analysis chart",
+    ]
+
+
+def build_post_html(slug, keyword, title, category, description, source_link, internal_links, body_html, image_srcs):
+    today = now_utc_date()
+
+    # 본문에 이미지 6장 균등 분배로 강제 삽입
+    body_html = inject_images_evenly(body_html, image_srcs, keyword)
+
+    # 내부링크 2개 하단에 한 번 더
     more_links = ""
     if len(internal_links) >= 2:
         a = internal_links[0]
         b = internal_links[1]
         more_links = f"""
-<a href="{safe_text(a['slug'])}.html"><span>{safe_text(a['title'])}</span><small>Guide</small></a>
-<a href="{safe_text(b['slug'])}.html"><span>{safe_text(b['title'])}</span><small>Guide</small></a>
+<a href="{safe_text(a['slug'])}.html"><span>{safe_text(a['title'])}</span><small>Read</small></a>
+<a href="{safe_text(b['slug'])}.html"><span>{safe_text(b['title'])}</span><small>Read</small></a>
 """.strip()
 
-    # Hot News 리스트는 posts.json 기반으로 페이지 내 JS로 채움
     html_doc = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -343,7 +456,7 @@ def build_post_html(
     <h1 class="post-title-xl">{safe_text(title)}</h1>
 
     <p class="post-lead">
-      {safe_text(keyword)} matters right now. Here is the clear breakdown.
+      A clean, practical breakdown of {safe_text(keyword)}.
     </p>
 
     <div class="post-meta">
@@ -360,7 +473,11 @@ def build_post_html(
     <article class="card article">
       <div class="prose">
         {body_html}
-        {inline_links_html}
+        <hr class="hr" />
+        <p><strong>More from {safe_text(SITE_NAME)}:</strong></p>
+        <div class="side-links">
+          {more_links or '<a href="../index.html"><span>Browse latest posts</span><small>Home</small></a>'}
+        </div>
         <p style="margin-top:14px;">
           Source: <a href="{safe_text(source_link)}" rel="nofollow noopener" target="_blank">Link</a>
         </p>
@@ -442,116 +559,37 @@ def build_post_html(
     return html_doc
 
 
-def make_body_prompt(keyword, title, category, internal_links):
-    # 내부링크 2개는 글 안에서 자연스럽게 1회씩 언급하도록
-    link_hints = ""
-    if len(internal_links) >= 2:
-        a = internal_links[0]
-        b = internal_links[1]
-        link_hints = f"""
-Internal links you MUST reference naturally in the body:
-- <a href="{a['slug']}.html">{a['title']}</a>
-- <a href="{b['slug']}.html">{b['title']}</a>
-"""
-
-    # 이미지 마커 6개를 본문에 “자연스럽게 분배”하도록 강제
-    # 그리고 첫 문단에 keyword 1회 반복 강제
-    prompt = f"""
-You are writing for a premium blog called {SITE_NAME}.
-Write a high quality SEO article.
-
-Topic keyword: {keyword}
-Category: {category}
-Final page title: {title}
-
-Hard requirements
-- Output ONLY valid HTML that goes inside <div class="prose">. No <html>, no <head>, no <body>.
-- Use only: <h2>, <h3>, <p>, <ul>, <li>, <hr>, <strong>, <a>
-- The FIRST paragraph must include the exact keyword once: "{keyword}"
-- Include: quick checklist section, FAQ section (3-5 Qs), practical tips
-- Tone: clean modern helpful not salesy
-- No captions like "Context image" or "Image:" anywhere
-
-Image placement
-- Insert these markers exactly once each, spread evenly through the article:
-<!--IMG1-->
-<!--IMG2-->
-<!--IMG3-->
-<!--IMG4-->
-<!--IMG5-->
-<!--IMG6-->
-- Each marker must be placed right after the paragraph that best matches an image.
-- Do not put two markers back to back.
-
-{link_hints}
-
-Structure guidance
-- Start with Introduction
-- Then 4-6 sections that explain what happened, why it matters, what to watch next
-- Then Quick checklist
-- Then FAQ
-- End with a short next steps paragraph
-
-Write 1200-1600 words.
-"""
-    return prompt.strip()
-
-
-def pick_image_queries(keyword, title):
-    # 6장용 검색어
-    # 텍스트와 어울리는 이미지가 나올 확률을 높이기 위해 범용 키워드를 섞음
-    base = keyword
-    return [
-        f"{base} news concept",
-        f"{base} social media reaction",
-        f"{base} protest crowd or discussion",
-        f"{base} smartphone screen breaking news" if "cool" not in title.lower() else f"{base} product photo",
-        f"{base} city night headline",
-        f"{base} analysis chart newsroom",
-    ]
-
-
-def create_post_from_item(item, existing_posts):
+def create_news_post_from_item(item, existing_posts):
     raw_title = clean_title(item["title"])
-    category = pick_category_for_item(raw_title)
+    category = pick_category_for_news_title(raw_title)
 
-    title = title_with_number_or_year(raw_title, category)
-
-    # keyword는 검색용으로 너무 길면 힘들어서 줄임
+    # keyword는 너무 길면 잘라서 1문단에 넣기 쉽게
     keyword = raw_title
     if len(keyword) > 90:
         keyword = keyword[:90].rsplit(" ", 1)[0].strip()
 
-    slug = slugify(title, lowercase=True)
-    slug = re.sub(r"-{2,}", "-", slug).strip("-")
-    slug = slug[:120].strip("-")
+    title = title_force_number_or_year(raw_title, category)
 
-    # 중복 방지
+    slug = slugify(title, lowercase=True)
+    slug = re.sub(r"-{2,}", "-", slug).strip("-")[:120].strip("-")
+
     used = {p.get("slug") for p in existing_posts}
     if slug in used:
         slug = f"{slug}-{random.randint(100,999)}"
 
     internal_links = choose_internal_links(existing_posts, slug, k=2)
 
-    prompt = make_body_prompt(keyword, title, category, internal_links)
+    prompt = make_body_prompt_news(keyword, title, category, internal_links)
     res = client.chat.completions.create(
         model=MODEL,
         messages=[{"role": "user", "content": prompt}],
     )
     body_html = (res.choices[0].message.content or "").strip()
 
-    # 안전장치: 마커가 부족하면 뒤에라도 채워서 빈 이미지 방지
-    for i in range(1, IMG_COUNT + 1):
-        m = f"<!--IMG{i}-->"
-        if m not in body_html:
-            # 섹션 끝에 끼워넣기
-            body_html += f"\n<p></p>\n{m}\n"
-
-    # 이미지 준비
-    img_queries = pick_image_queries(keyword, title)
+    img_queries = pick_image_queries(keyword, title, category)
     image_srcs = ensure_images(slug, img_queries)
 
-    description = make_meta_description(keyword, item.get("source", ""))
+    description = make_meta_description(keyword)
 
     html_doc = build_post_html(
         slug=slug,
@@ -565,7 +603,6 @@ def create_post_from_item(item, existing_posts):
         image_srcs=image_srcs,
     )
 
-    # 저장
     (POSTS_DIR / f"{slug}.html").write_text(html_doc, encoding="utf-8")
 
     new_item = {
@@ -575,8 +612,87 @@ def create_post_from_item(item, existing_posts):
         "category": category,
         "date": now_utc_date(),
         "views": 0,
+        # 홈/카테고리 썸네일용 (나중에 index.html에서 쓰면 됨)
+        "image": f"assets/posts/{slug}/1.jpg",
     }
+    return new_item
 
+
+def pick_guide_keyword(existing_posts):
+    # “뉴스” 말고 SEO용 evergreen 가이드 주제 풀
+    pool = [
+        "protect your privacy on social media",
+        "spot fake news on social media",
+        "reduce screen time without losing productivity",
+        "organize your digital life in 30 minutes",
+        "build a simple weekly routine that sticks",
+        "how to choose a budget phone in 2026",
+        "best free tools for studying in 2026",
+        "how to travel lighter for a weekend trip",
+        "how to improve focus for remote work",
+        "how to manage subscriptions and save money",
+    ]
+
+    used = {(p.get("title") or "").lower() for p in existing_posts}
+    random.shuffle(pool)
+    for k in pool:
+        if k.lower() not in used:
+            return k
+    return random.choice(pool)
+
+
+def create_guide_post(existing_posts):
+    category = "Guides"
+    keyword = pick_guide_keyword(existing_posts)
+
+    # 제목은 How / 2026 강제
+    base_title = keyword.strip().capitalize()
+    title = title_force_number_or_year(base_title, category)
+
+    slug = slugify(title, lowercase=True)
+    slug = re.sub(r"-{2,}", "-", slug).strip("-")[:120].strip("-")
+
+    used = {p.get("slug") for p in existing_posts}
+    if slug in used:
+        slug = f"{slug}-{random.randint(100,999)}"
+
+    internal_links = choose_internal_links(existing_posts, slug, k=2)
+
+    prompt = make_body_prompt_guide(keyword, title, internal_links)
+    res = client.chat.completions.create(
+        model=MODEL,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    body_html = (res.choices[0].message.content or "").strip()
+
+    img_queries = pick_image_queries(keyword, title, category)
+    image_srcs = ensure_images(slug, img_queries)
+
+    description = make_meta_description(keyword)
+
+    html_doc = build_post_html(
+        slug=slug,
+        keyword=keyword,
+        title=title,
+        category=category,
+        description=description,
+        source_link="../index.html",
+        internal_links=internal_links,
+        body_html=body_html,
+        image_srcs=image_srcs,
+    )
+
+    (POSTS_DIR / f"{slug}.html").write_text(html_doc, encoding="utf-8")
+
+    new_item = {
+        "slug": slug,
+        "title": title,
+        "description": description,
+        "category": category,
+        "date": now_utc_date(),
+        "views": 0,
+        "image": f"assets/posts/{slug}/1.jpg",
+    }
     return new_item
 
 
@@ -585,37 +701,72 @@ def main():
         raise SystemExit("OPENAI_API_KEY is missing")
 
     ensure_dirs()
-
     existing = load_posts_json()
 
-    items = fetch_rss_items()
-    if not items:
+    # 하루 3개 고정: Trends 2 + Guide 1
+    target_trends = 2
+    target_guide = 1
+
+    # “대형 사건사고” 느낌으로 너무 가면 AdSense에 불리할 수 있어서
+    # ‘논란/업데이트/정책/신제품/이슈’ 쪽으로
+    trend_queries = [
+        "policy update backlash trending",
+        "product launch feature update 2026",
+        "platform change creators reaction",
+        "privacy update app users 2026",
+        "viral trend why it matters",
+    ]
+    rss_items = fetch_rss_items(trend_queries, per_query=10)
+    if not rss_items:
         raise SystemExit("No RSS items fetched")
 
     created = 0
     new_posts = []
 
-    for it in items:
-        if created >= POSTS_PER_RUN:
+    # 1) Trends 2개 만들기
+    for it in rss_items:
+        if len(new_posts) >= target_trends:
             break
         try:
-            new_item = create_post_from_item(it, existing + new_posts)
+            new_item = create_news_post_from_item(it, existing + new_posts)
             new_posts.append(new_item)
             created += 1
-            print("CREATED:", new_item["slug"])
+            print("CREATED (news):", new_item["slug"])
         except Exception as e:
-            print("SKIP (error):", str(e))
+            print("SKIP news (error):", str(e))
             continue
+
+    # 2) Guide 1개 만들기
+    try:
+        g = create_guide_post(existing + new_posts)
+        new_posts.append(g)
+        created += 1
+        print("CREATED (guide):", g["slug"])
+    except Exception as e:
+        print("SKIP guide (error):", str(e))
+
+    # 총 3개가 안 되면 남은 만큼 뉴스로 채움
+    if len(new_posts) < POSTS_PER_RUN:
+        for it in rss_items:
+            if len(new_posts) >= POSTS_PER_RUN:
+                break
+            try:
+                new_item = create_news_post_from_item(it, existing + new_posts)
+                new_posts.append(new_item)
+                created += 1
+                print("CREATED (fill):", new_item["slug"])
+            except Exception as e:
+                print("SKIP fill (error):", str(e))
+                continue
 
     if not new_posts:
         raise SystemExit("No posts created")
 
-    # posts.json 앞에 추가
-    # 같은 slug 있으면 교체
+    # posts.json 앞에 추가, 같은 slug는 교체
     merged = new_posts + [p for p in existing if p.get("slug") not in {n["slug"] for n in new_posts}]
     save_posts_json(merged)
 
-    print("POSTS CREATED:", created)
+    print("POSTS CREATED:", len(new_posts))
 
 
 if __name__ == "__main__":
