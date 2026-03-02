@@ -431,70 +431,7 @@ a:hover{text-decoration:underline}
   font-weight:700;
 }
 
-/* HOT NEWS (match "More to read" style) */
-.hotnews{padding:16px}
-.hotnews h4{margin:0 0 10px;font-size:14px}
-
-.hot-list{
-  display:flex;
-  flex-direction:column;
-  gap:10px;
-}
-
-.hot-item{
-  display:flex;
-  align-items:center;
-  gap:12px;
-  padding:12px 12px;
-  border-radius:12px;
-  border:1px solid var(--border);
-  background:#fff;
-  color:var(--text);
-  text-decoration:none;
-  transition:background .16s ease, transform .16s ease;
-}
-
-.hot-item:hover{
-  background:#f3f4f6;
-  transform:translateY(-1px);
-}
-
-.hot-item.is-active{
-  background:linear-gradient(135deg, var(--accent), var(--accent2));
-  border-color:transparent;
-}
-
-.hot-icon{
-  width:36px;
-  height:36px;
-  border-radius:12px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  background:rgba(255,255,255,.75);
-  font-size:18px;
-  flex:0 0 auto;
-}
-
-.hot-title{
-  font-weight:900;
-  font-size:15px;
-  letter-spacing:-.01em;
-  line-height:1.2;
-  margin-bottom:2px;
-}
-
-.hot-desc{
-  font-size:12px;
-  font-weight:700;
-  opacity:.85;
-}
-
-.hot-item.is-active .hot-title,
-.hot-item.is-active .hot-desc{
-  color:#fff;
-}
-
-.hot-item.is-active .hot-icon{
-  background:rgba(255,255,255,.9);
+/* HOT NEWS uses same template as More to read */
+.hotnews .side-links a{
+  margin-top:10px;
 }
