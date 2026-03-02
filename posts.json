@@ -1,9 +1,23 @@
 [
   {
-    "slug": "travel-tips-for-beginners",
-    "title": "Travel tips for beginners (Korea edition)",
-    "description": "A calm checklist for your first trip. Planning, documents, money, data, safety, packing.",
-    "category": "Lists and tips",
+    "slug": "quiet-luxury-lifestyle-2026",
+    "title": "Why ‘Quiet Luxury’ Is Taking Over in 2026",
+    "description": "Minimal, calm, and intentional. How young adults in the US and Europe are redefining status without showing off.",
+    "category": "Trends & News",
+    "date": "2026-03-02"
+  },
+  {
+    "slug": "carry-less-travel-kit-20s",
+    "title": "The Carry-Less Travel Kit Everyone in Their 20s Is Switching To",
+    "description": "A lighter, smarter packing setup for city trips and short flights. What to remove, what to keep, and why it works.",
+    "category": "Cool Finds",
+    "date": "2026-03-02"
+  },
+  {
+    "slug": "focus-stack-digital-nomads",
+    "title": "The Focus Stack Remote Workers Are Using Right Now",
+    "description": "Apps, setups, and small tools that quietly boost productivity without burnout or distraction.",
+    "category": "Cool Finds",
     "date": "2026-03-02"
   }
 ]
