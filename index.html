@@ -73,9 +73,10 @@
       </div>
 
       <div class="card related">
-        <h4>Hot now!</h4>
-        <div id="hot-now"></div>
-        <p class="tiny-note">Sorted by views from posts.json</p>
+        <h4>Up next</h4>
+        <a href="#">Korea SIM vs eSIM for tourists</a>
+        <a href="#">How public transport works in Korea</a>
+        <a href="#">What to pack by season</a>
       </div>
     </aside>
   </section>
@@ -92,22 +93,5 @@
   </div>
 </footer>
 
-<script>
-(async function () {
-  const res = await fetch("posts.json", { cache: "no-store" });
-  const posts = await res.json();
-
-  const hotWrap = document.getElementById("hot-now");
-  if (!hotWrap) return;
-
-  const hot = [...posts].sort((a,b) => (b.views || 0) - (a.views || 0));
-  hotWrap.innerHTML = hot.slice(0, 5).map(p => {
-    const href = `posts/${p.slug}.html`;
-    const v = (p.views || 0).toLocaleString();
-    return `<a class="hot-link" href="${href}"><span>${p.title}</span><span class="hot-views">${v}</span></a>`;
-  }).join("");
-})();
-</script>
-  
 </body>
 </html>
