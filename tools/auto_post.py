@@ -5,6 +5,7 @@ import time
 import html
 import random
 import urllib.parse
+import base64
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -30,9 +31,19 @@ MODEL = os.environ.get("MODEL", "gpt-4o-mini").strip()
 IMG_COUNT = 6
 HTTP_TIMEOUT = 25
 
+# 이미지 생성은 문단과 1:1 매칭
+IMAGE_PROVIDER = os.environ.get("IMAGE_PROVIDER", "openai").strip().lower()
+IMAGE_MODEL = os.environ.get("IMAGE_MODEL", "gpt-image-1").strip()
+IMAGE_SIZE = os.environ.get("IMAGE_SIZE", "1536x864").strip()
+
 client = OpenAI(api_key=OPENAI_API_KEY)
 
-UA = {"User-Agent": "mingmong-bot/1.0 (+github-actions)"}
+UA = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0 Safari/537.36",
+    "Accept": "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Referer": "https://www.google.com/",
+}
 
 
 # -----------------------------
@@ -158,7 +169,7 @@ def choose_internal_links(existing_posts, current_slug, k=2):
 
 
 # -----------------------------
-# Image helpers
+# Placeholder
 # -----------------------------
 def write_svg_placeholder(path: Path):
     svg = """<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
@@ -175,118 +186,18 @@ def write_svg_placeholder(path: Path):
     path.write_text(svg, encoding="utf-8")
 
 
-def download_file(url: str, out_path: Path):
-    r = requests.get(url, timeout=HTTP_TIMEOUT, stream=True, headers=UA, allow_redirects=True)
-    r.raise_for_status()
-    with out_path.open("wb") as f:
-        for chunk in r.iter_content(chunk_size=1024 * 128):
-            if chunk:
-                f.write(chunk)
-
-
-def wikimedia_image_url(query: str):
-    api = "https://commons.wikimedia.org/w/api.php"
-    params = {
-        "action": "query",
-        "format": "json",
-        "generator": "search",
-        "gsrsearch": query,
-        "gsrlimit": 1,
-        "prop": "imageinfo",
-        "iiprop": "url",
-        "iiurlwidth": 1600,
-    }
-    r = requests.get(api, params=params, timeout=HTTP_TIMEOUT, headers=UA)
-    r.raise_for_status()
-    j = r.json()
-    pages = (j.get("query") or {}).get("pages") or {}
-    for _, p in pages.items():
-        info = (p.get("imageinfo") or [])
-        if info:
-            return info[0].get("thumburl") or info[0].get("url")
-    return None
-
-
-def unsplash_source_url(query: str):
-    qp = urllib.parse.quote(query[:80])
-    return f"https://source.unsplash.com/1600x900/?{qp}"
-
-
-def ensure_images(slug: str, img_queries):
-    folder = ASSETS_POSTS_DIR / slug
-    folder.mkdir(parents=True, exist_ok=True)
-
-    # posts/*.html 에서 쓰는 경로는 ../assets/... (현재 구조 기준)
-    paths_for_post_page = []
-
-    for i in range(IMG_COUNT):
-        q = (img_queries[i] if i < len(img_queries) else img_queries[-1]).strip()
-        jpg_path = folder / f"{i+1}.jpg"
-        svg_path = folder / f"{i+1}.svg"
-
-        if jpg_path.exists():
-            paths_for_post_page.append(f"../assets/posts/{slug}/{i+1}.jpg")
-            continue
-        if svg_path.exists():
-            paths_for_post_page.append(f"../assets/posts/{slug}/{i+1}.svg")
-            continue
-
-        ok = False
-
-        try:
-            url = wikimedia_image_url(q)
-            if url:
-                download_file(url, jpg_path)
-                ok = True
-        except Exception:
-            ok = False
-
-        if not ok:
-            try:
-                url = unsplash_source_url(q)
-                download_file(url, jpg_path)
-                ok = True
-            except Exception:
-                ok = False
-
-        if ok:
-            paths_for_post_page.append(f"../assets/posts/{slug}/{i+1}.jpg")
-        else:
-            write_svg_placeholder(svg_path)
-            paths_for_post_page.append(f"../assets/posts/{slug}/{i+1}.svg")
-
-        time.sleep(0.25)
-
-    return paths_for_post_page
-
-
-def build_image_block(src: str, alt: str):
-    return f"""
-<figure class="photo" style="margin:18px 0;">
-  <img src="{src}" alt="{safe_text(alt)}" loading="lazy" />
-</figure>
-""".strip()
-
-
 # -----------------------------
-# Body sanitize (핵심)
+# Body sanitize (code fence 제거)
 # -----------------------------
 def sanitize_body_html(body_html: str) -> str:
-    """
-    GPT가 ```html ... ``` 코드블록으로 주면 제거해서 실제 HTML로 렌더되게 함
-    그리고 <div class="prose"> 같은 바깥 래퍼도 제거
-    """
     s = (body_html or "").strip()
 
-    # ```html ... ``` 또는 ``` ... ``` 제거
     if s.startswith("```"):
         s = re.sub(r"^```[a-zA-Z]*\s*", "", s)
         s = re.sub(r"\s*```$", "", s)
 
-    # 혹시 중간에 남아있는 fence도 제거
     s = s.replace("```html", "").replace("```", "")
 
-    # 바깥에 <div class="prose">가 또 있으면 제거
     s = re.sub(r"^\s*<div\s+class=[\"']prose[\"']\s*>\s*", "", s, flags=re.IGNORECASE)
     s = re.sub(r"\s*</div>\s*$", "", s, flags=re.IGNORECASE)
 
@@ -294,7 +205,7 @@ def sanitize_body_html(body_html: str) -> str:
 
 
 # -----------------------------
-# Body marker distribution
+# Marker distribution
 # -----------------------------
 def distribute_missing_markers(body_html: str) -> str:
     for i in range(1, IMG_COUNT + 1):
@@ -329,6 +240,112 @@ def distribute_missing_markers(body_html: str) -> str:
 
 
 # -----------------------------
+# Extract text after marker (이미지-문단 매칭 핵심)
+# -----------------------------
+def strip_tags_keep_text(s: str) -> str:
+    s = re.sub(r"<[^>]+>", " ", s or "")
+    s = re.sub(r"\s+", " ", s).strip()
+    return s
+
+
+def context_after_marker(body_html: str, marker: str, max_chars: int = 520) -> str:
+    idx = (body_html or "").find(marker)
+    if idx < 0:
+        return ""
+
+    tail = body_html[idx + len(marker):]
+
+    blocks = re.findall(
+        r"(<h2[^>]*>.*?</h2>|<h3[^>]*>.*?</h3>|<p[^>]*>.*?</p>)",
+        tail,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+
+    picked = []
+    for b in blocks[:4]:
+        t = strip_tags_keep_text(b)
+        if t:
+            picked.append(t)
+        if sum(len(x) for x in picked) >= max_chars:
+            break
+
+    out = " ".join(picked).strip()
+    return out[:max_chars].strip()
+
+
+# -----------------------------
+# Image generation (OpenAI)
+# -----------------------------
+def generate_image_openai(prompt: str, out_path: Path):
+    p = (prompt or "").strip()
+    if not p:
+        p = "clean modern lifestyle photo, minimal, premium, natural light, no text"
+
+    p = f"""
+Create a photorealistic premium blog image that matches the content.
+No text, no captions, no watermarks, no logos.
+Style: clean modern, natural lighting, high resolution.
+Content to match:
+{p}
+""".strip()
+
+    res = client.images.generate(
+        model=IMAGE_MODEL,
+        prompt=p,
+        size=IMAGE_SIZE,
+    )
+
+    b64 = res.data[0].b64_json
+    img_bytes = base64.b64decode(b64)
+    out_path.write_bytes(img_bytes)
+
+
+def ensure_images_text_matched(slug: str, body_html_with_markers: str):
+    folder = ASSETS_POSTS_DIR / slug
+    folder.mkdir(parents=True, exist_ok=True)
+
+    paths_for_post_page = []
+
+    for i in range(IMG_COUNT):
+        n = i + 1
+        jpg_path = folder / f"{n}.jpg"
+
+        if jpg_path.exists() and jpg_path.stat().st_size > 8000:
+            paths_for_post_page.append(f"../assets/posts/{slug}/{n}.jpg")
+            continue
+
+        marker = f"<!--IMG{n}-->"
+        ctx = context_after_marker(body_html_with_markers, marker, max_chars=520)
+
+        ok = False
+        if IMAGE_PROVIDER == "openai":
+            try:
+                generate_image_openai(ctx, jpg_path)
+                ok = True
+            except Exception:
+                ok = False
+
+        if ok and jpg_path.exists() and jpg_path.stat().st_size > 8000:
+            paths_for_post_page.append(f"../assets/posts/{slug}/{n}.jpg")
+        else:
+            svg_path = folder / f"{n}.svg"
+            write_svg_placeholder(svg_path)
+            paths_for_post_page.append(f"../assets/posts/{slug}/{n}.svg")
+
+        time.sleep(0.2)
+
+    return paths_for_post_page
+
+
+def build_image_block(src: str, alt: str):
+    return f"""
+<figure class="photo" style="margin:18px 0;">
+  <img src="{src}" alt="{safe_text(alt)}" loading="lazy" />
+</figure>
+""".strip()
+
+
+# -----------------------------
 # Prompting
 # -----------------------------
 def make_body_prompt(keyword: str, title: str, category: str, internal_links):
@@ -356,6 +373,7 @@ Hard requirements
 - Include these sections: Practical tips, Quick checklist, FAQ (3-5 questions)
 - Tone: clean, modern, helpful. Not salesy.
 - Do NOT wrap your answer in markdown code fences like ```html
+- Do NOT output <div class="prose"> wrapper. Only inner HTML.
 
 Image placement markers
 - Insert each marker exactly once
@@ -377,39 +395,6 @@ Length
 Write now.
 """
     return prompt.strip()
-
-
-def pick_image_queries(keyword: str, title: str):
-    base = keyword[:80]
-    is_cool = "cool" in title.lower()
-    is_guide = "guide" in title.lower()
-
-    if is_cool:
-        return [
-            f"{base} product concept",
-            f"{base} device close up",
-            f"{base} app interface",
-            f"{base} modern desk setup",
-            f"{base} hands using phone",
-            f"{base} tech lifestyle",
-        ]
-    if is_guide:
-        return [
-            f"{base} checklist concept",
-            f"{base} travel packing minimal",
-            f"{base} planning notes",
-            f"{base} map navigation",
-            f"{base} suitcase essentials",
-            f"{base} routine lifestyle",
-        ]
-    return [
-        f"{base} breaking news concept",
-        f"{base} social media reaction",
-        f"{base} public discussion",
-        f"{base} newsroom",
-        f"{base} city headline",
-        f"{base} analysis chart",
-    ]
 
 
 # -----------------------------
@@ -623,16 +608,15 @@ def create_post_from_item(item, existing_posts):
     )
     body_html = (res.choices[0].message.content or "").strip()
 
+    # 마커 하나도 없으면 강제 추가
     if not re.search(r"<!--IMG[1-6]-->", body_html):
         body_html = body_html + "\n" + "\n".join([f"<!--IMG{i}-->" for i in range(1, IMG_COUNT + 1)]) + "\n"
 
-    img_queries = pick_image_queries(keyword, title)
-    image_srcs = ensure_images(slug, img_queries)
+    # 마커가 빠져도 균등 보정 먼저
+    body_html = distribute_missing_markers(body_html)
 
-    # 홈/카테고리에서 쓸 썸네일 경로 (루트 기준)
-    # ensure_images는 posts 페이지용 ../assets/... 를 반환하니
-    # 여기서는 assets/... 로 저장
-    thumb = image_srcs[0].replace("../", "", 1) if image_srcs else f"assets/posts/{slug}/1.svg"
+    # 이미지 생성은 "마커 뒤 문단" 기반
+    image_srcs = ensure_images_text_matched(slug, body_html)
 
     description = make_meta_description(keyword, item.get("source", ""))
 
@@ -649,6 +633,9 @@ def create_post_from_item(item, existing_posts):
     )
 
     (POSTS_DIR / f"{slug}.html").write_text(html_doc, encoding="utf-8")
+
+    # 홈 썸네일은 assets/... 로 저장
+    thumb = image_srcs[0].replace("../", "", 1) if image_srcs else f"assets/posts/{slug}/1.svg"
 
     new_item = {
         "slug": slug,
