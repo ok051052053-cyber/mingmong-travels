@@ -3,89 +3,88 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MingMong | Global Trends & Cool Finds</title>
-  <meta name="description" content="Curated global trends, tools, and cool finds for people in their 20s and 30s across the US and Europe.">
+  <title>MingMong Travels</title>
+  <meta name="description" content="Korea travel experiences and essentials for young travelers across the US and Europe.">
   <link rel="stylesheet" href="style.css">
 </head>
-
 <body>
 
 <header class="topbar">
   <div class="container topbar-inner">
     <a class="brand" href="index.html">
       <span class="mark" aria-hidden="true"></span>
-      <span>MingMong</span>
+      <span>MingMong Travels</span>
     </a>
 
     <nav class="nav" aria-label="Primary">
-      <a href="index.html">Home</a>
+      <a href="index.html">Resources</a>
       <a href="about.html">About</a>
       <a href="contact.html">Contact</a>
-      <a class="btn primary" href="posts/start-here.html">Start Here</a>
+      <a class="btn primary" href="posts/quiet-luxury-lifestyle-2026.html">Start Here</a>
     </nav>
   </div>
 </header>
 
 <main class="container">
-
   <section class="hero">
-    <p class="breadcrumb">Global Lifestyle</p>
-    <h1 class="h1">Trends, tools, and ideas for modern 20s & 30s</h1>
-    <p class="lead">
-      Curated trends, practical tools, and cool finds for young people across the US and Europe.
-    </p>
+    <p class="breadcrumb">Resources</p>
+    <h1 class="h1">Travel resources for Korea</h1>
+    <p class="lead">Beginner friendly guides for US and Europe travelers. Clear steps. Local context. No fluff.</p>
   </section>
 
   <section class="layout">
-
     <article class="card article">
       <h2>Latest</h2>
-      <p class="lead">Fresh posts, clean structure, no noise.</p>
+      <p class="lead">Fresh guides and checklists.</p>
       <hr class="hr">
-      <div id="latest-list"></div>
+      <div class="card" style="box-shadow:none;border:none;background:transparent;">
+        <a class="post-card" href="posts/quiet-luxury-lifestyle-2026.html">
+          <div class="thumb" aria-hidden="true"></div>
+          <div>
+            <div class="kicker">Trends & News</div>
+            <div class="post-title">Why Quiet Luxury Is Taking Over in 2026</div>
+            <p class="post-desc">Minimal, calm, and intentional. A new definition of modern lifestyle for young adults.</p>
+          </div>
+        </a>
+<a class="post-card" href="posts/carry-less-travel-kit-20s.html">
+          <div class="thumb" aria-hidden="true"></div>
+          <div>
+            <div class="kicker">Cool Finds</div>
+            <div class="post-title">The Carry-Less Travel Kit Everyone in Their 20s Is Switching To</div>
+            <p class="post-desc">A lighter and smarter packing system for short trips and city travel.</p>
+          </div>
+        </a>
+<a class="post-card" href="posts/focus-stack-digital-nomads.html">
+          <div class="thumb" aria-hidden="true"></div>
+          <div>
+            <div class="kicker">Cool Finds</div>
+            <div class="post-title">The Focus Stack Remote Workers Are Using Right Now</div>
+            <p class="post-desc">Tools and setups that boost focus without burnout.</p>
+          </div>
+        </a>
+      </div>
     </article>
 
     <aside class="sidebar">
-
       <div class="card sidebox">
         <h4>Categories</h4>
-
-        <div class="cat-list" role="list">
-          <a class="cat-item" role="listitem" href="#trends">
-            <span class="cat-icon" aria-hidden="true">📰</span>
-            <span class="cat-text">
-              <span class="cat-title">Trends & News</span>
-              <span class="cat-sub">Culture, work, travel, modern life</span>
-            </span>
-          </a>
-
-          <a class="cat-item" role="listitem" href="#finds">
-            <span class="cat-icon" aria-hidden="true">✨</span>
-            <span class="cat-text">
-              <span class="cat-title">Cool Finds</span>
-              <span class="cat-sub">Tools, gear, products worth using</span>
-            </span>
-          </a>
-        </div>
-
-        <a class="btn primary" style="margin-top:12px" href="posts/start-here.html">Start Here</a>
+        <p>Korea Travel Experiences and Korea Lifestyle and Essentials</p>
+        <a class="btn primary" href="posts/quiet-luxury-lifestyle-2026.html">Open the latest guide</a>
       </div>
 
       <div class="card related">
-        <h4>Hot now!</h4>
-        <div id="hot-now"></div>
-        <p class="tiny-note">Sorted by views from posts.json</p>
+        <h4>Up next</h4>
+        <a href="#">Korea SIM vs eSIM for tourists</a>
+        <a href="#">How public transport works in Korea</a>
+        <a href="#">What to pack by season</a>
       </div>
-
     </aside>
-
   </section>
-
 </main>
 
 <footer class="footer">
   <div class="container">
-    <div>© 2026 MingMong</div>
+    <div>© 2026 MingMong Travels</div>
     <div class="footer-links">
       <a href="privacy.html">Privacy</a>
       <a href="about.html">About</a>
@@ -93,42 +92,6 @@
     </div>
   </div>
 </footer>
-
-<script>
-(async function () {
-  const res = await fetch("posts.json", { cache: "no-store" });
-  const posts = await res.json();
-
-  const latestWrap = document.getElementById("latest-list");
-  const hotWrap = document.getElementById("hot-now");
-
-  function postCard(p) {
-    const href = `posts/${p.slug}.html`;
-    return `
-      <a class="post-card" href="${href}">
-        <div class="thumb" aria-hidden="true"></div>
-        <div>
-          <div class="kicker">${p.category || "Article"}</div>
-          <div class="post-title">${p.title}</div>
-          <p class="post-desc">${p.description || ""}</p>
-        </div>
-      </a>
-    `;
-  }
-
-  // Latest: date 최신순
-  const latest = [...posts].sort((a,b) => (b.date || "").localeCompare(a.date || ""));
-  latestWrap.innerHTML = latest.slice(0, 6).map(postCard).join("");
-
-  // Hot now: views 높은 순
-  const hot = [...posts].sort((a,b) => (b.views || 0) - (a.views || 0));
-  hotWrap.innerHTML = hot.slice(0, 5).map(p => {
-    const href = `posts/${p.slug}.html`;
-    const v = (p.views || 0).toLocaleString();
-    return `<a class="hot-link" href="${href}"><span>${p.title}</span><span class="hot-views">${v}</span></a>`;
-  }).join("");
-})();
-</script>
 
 </body>
 </html>
