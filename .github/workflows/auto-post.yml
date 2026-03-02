@@ -1,0 +1,35 @@
+name: Auto Post Generator
+
+on:
+  workflow_dispatch:
+    inputs:
+      keyword:
+        description: "Enter keyword"
+        required: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - run: pip install openai
+
+      - name: Generate post
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          KEYWORD: ${{ github.event.inputs.keyword }}
+        run: python tools/auto_post.py
+
+      - name: Commit
+        run: |
+          git config user.name "bot"
+          git config user.email "bot@github.com"
+          git add .
+          git commit -m "auto post"
+          git push
