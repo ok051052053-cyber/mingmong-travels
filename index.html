@@ -110,20 +110,35 @@
     return p.thumbnail || p.image || `assets/posts/${p.slug}/1.jpg`;
   }
 
-  function postCard(p) {
-    const href = `posts/${p.slug}.html`;
-    const thumb = getThumb(p);
-    return `
-      <a class="post-card" href="${href}">
-        <div class="thumb" aria-hidden="true" style="background-image:url('${thumb}')"></div>
-        <div>
-          <div class="kicker">${p.category || "Article"}</div>
-          <div class="post-title">${p.title}</div>
-          <p class="post-desc">${p.description || ""}</p>
-        </div>
-      </a>
-    `;
-  }
+function esc(s) {
+  return String(s || "")
+    .replace(/&/g,"&amp;")
+    .replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;");
+}
+
+function thumbUrl(p) {
+  return p.thumbnail || p.image || "";
+}
+
+function postCard(p) {
+  const href = `posts/${p.slug}.html`;
+  const t = thumbUrl(p);
+  const thumbStyle = t ? `style="background-image:url('${esc(t)}')"` : "";
+  const thumbClass = t ? "thumb has-img" : "thumb";
+
+  return `
+    <a class="post-card" href="${href}">
+      <div class="${thumbClass}" ${thumbStyle} aria-hidden="true"></div>
+      <div>
+        <div class="kicker">${esc(p.category || "Article")}</div>
+        <div class="post-title">${esc(p.title)}</div>
+        <p class="post-desc">${esc(p.description || "")}</p>
+      </div>
+    </a>
+  `;
+}
 
   const latest = [...posts].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
   latestWrap.innerHTML = latest.map(postCard).join("");
