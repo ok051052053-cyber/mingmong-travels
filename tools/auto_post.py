@@ -2,6 +2,8 @@ import os
 import json
 import random
 import re
+import time
+import base64
 from datetime import datetime
 from pathlib import Path
 
@@ -23,7 +25,6 @@ POSTS_JSON = ROOT / "posts.json"
 
 client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
 
-# RSS sources
 RSS_TRENDS = [
   "https://feeds.bbci.co.uk/news/rss.xml",
   "https://www.theverge.com/rss/index.xml",
@@ -36,6 +37,16 @@ RSS_FINDS = [
 ]
 
 IMG_COUNT = 6
+
+UA_HEADERS = {
+  "User-Agent": "Mozilla/5.0 (compatible; MingMongBot/1.0; +https://github.com/)",
+  "Accept": "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
+}
+
+# 1x1 jpg fallback (valid jpeg bytes)
+FALLBACK_JPG = base64.b64decode(
+  "/9j/4AAQSkZJRgABAQAAAQABAAD/2wCEAAEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQH/2wCEAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQH/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAf/xAAdEAACAQQDAQAAAAAAAAAAAAABAgMABAURBhIh/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAL/xAAWEQEBAQAAAAAAAAAAAAAAAAAAARH/2gAMAwEAAhEDEQA/AKbqKz2yQw7y4oV7bqj1m4t6d+Qp1jWq8WwqV0cZp0qgYVnYlq2g0yZQF5Jt6gP/9k="
+)
 
 # -------------------------
 # UTILS
@@ -80,7 +91,6 @@ def fetch_feed_items(urls, limit_each=25):
 def pick_topic(category: str, used_slugs: set):
   pool = fetch_feed_items(RSS_FINDS if category == "Cool Finds" else RSS_TRENDS)
 
-  # 최신성 우선: 앞쪽이 최신일 가능성이 높아 앞부분에 가중
   pool = pool[:80] if len(pool) > 80 else pool
   random.shuffle(pool)
 
@@ -100,50 +110,16 @@ def ensure_title_has_number_or_year(title: str, category: str) -> str:
   if has_year or has_number:
     return title
 
-  # 자동 보정
   if category == "Cool Finds":
-    # 숫자 + 연도 둘 다 넣기
     return f"5 Things About {title} ({y})"
-  # Trends: 연도 접두
   return f"{y}: {title}"
 
-def smart_description(title: str, category: str) -> str:
+def smart_description(main_keyword: str, category: str) -> str:
   if category == "Cool Finds":
     return "What it is. Why people are switching now. How to try it without wasting money."
   return "What happened. Why it matters right now. What you should do next."
 
-def download_image(query: str, out_path: Path):
-  out_path.parent.mkdir(parents=True, exist_ok=True)
-
-  # Unsplash Source: 무료 랜덤 이미지 제공
-  url = "https://source.unsplash.com/1600x900/?" + requests.utils.quote(query)
-  r = requests.get(url, timeout=30)
-  r.raise_for_status()
-  out_path.write_bytes(r.content)
-
-def ensure_images(slug: str, keyword: str, n=IMG_COUNT):
-  folder = ASSETS_DIR / slug
-  folder.mkdir(parents=True, exist_ok=True)
-
-  # 각 이미지별 쿼리 다양화
-  queries = [
-    f"{keyword} modern",
-    f"{keyword} lifestyle",
-    f"{keyword} trend",
-    f"{keyword} people",
-    f"{keyword} minimal",
-    f"{keyword} technology",
-  ]
-
-  for i in range(1, n + 1):
-    p = folder / f"{i}.jpg"
-    if p.exists():
-      continue
-    q = queries[(i - 1) % len(queries)]
-    download_image(q, p)
-
 def internal_link_candidates(posts, current_slug: str):
-  # 최근 글에서 2개 뽑기
   cands = []
   for p in posts[:30]:
     s = p.get("slug")
@@ -167,48 +143,104 @@ def build_internal_links_block(internal_links: list):
 </ul>
 """
 
+# -------------------------
+# IMAGE DOWNLOAD (503 FIX)
+# -------------------------
+def _try_download(url: str, out_path: Path, tries: int = 3):
+  last_err = None
+  for i in range(tries):
+    try:
+      r = requests.get(url, headers=UA_HEADERS, timeout=30, allow_redirects=True)
+      if r.status_code >= 400:
+        raise requests.HTTPError(f"{r.status_code} for {url}")
+      out_path.write_bytes(r.content)
+      return True
+    except Exception as e:
+      last_err = e
+      time.sleep(1.0 + i * 1.5)
+  return False
+
+def download_image(seed: str, query: str, out_path: Path):
+  out_path.parent.mkdir(parents=True, exist_ok=True)
+
+  # 1) Picsum seed (가장 안정적)
+  picsum = f"https://picsum.photos/seed/{requests.utils.quote(seed)}/1600/900"
+  if _try_download(picsum, out_path, tries=3):
+    return
+
+  # 2) Unsplash source (가끔 503)
+  unsplash = "https://source.unsplash.com/1600x900/?" + requests.utils.quote(query)
+  if _try_download(unsplash, out_path, tries=3):
+    return
+
+  # 3) Placeholder (png일 수도 있음. 그래도 파일만 있으면 페이지는 살아감)
+  placehold = "https://placehold.co/1600x900/jpg?text=" + requests.utils.quote(query[:40])
+  if _try_download(placehold, out_path, tries=2):
+    return
+
+  # 4) 로컬 1x1 jpg로라도 저장해서 workflow가 절대 죽지 않게
+  out_path.write_bytes(FALLBACK_JPG)
+
+def ensure_images(slug: str, keyword: str, n=IMG_COUNT):
+  folder = ASSETS_DIR / slug
+  folder.mkdir(parents=True, exist_ok=True)
+
+  queries = [
+    f"{keyword} modern",
+    f"{keyword} lifestyle",
+    f"{keyword} trend",
+    f"{keyword} people",
+    f"{keyword} minimal",
+    f"{keyword} technology",
+  ]
+
+  for i in range(1, n + 1):
+    p = folder / f"{i}.jpg"
+    if p.exists():
+      continue
+    q = queries[(i - 1) % len(queries)]
+    seed = f"{slug}-{i}"
+    download_image(seed, q, p)
+
+# -------------------------
+# AI BODY
+# -------------------------
 def ai_body_html(main_keyword: str, display_title: str, category: str, source_link: str, internal_links: list):
-  # 첫 문단에 키워드 1회 반복 강제 + 내부링크 2개 삽입
   links_block = build_internal_links_block(internal_links)
 
   prompt = f"""
 You are a senior SEO editor for a premium blog called {SITE_NAME}.
 
-Write a high authority article.
-
 Main keyword (must appear in the FIRST paragraph exactly once):
 {main_keyword}
 
-Display title (use as guidance for angle and wording):
+Display title:
 {display_title}
 
 Category:
 {category}
 
 Hard requirements
-- Output ONLY valid HTML that will be inserted inside <div class="prose">
-- Do NOT output <html>, <head>, or <body>
+- Output ONLY valid HTML for inside <div class="prose">
+- Do NOT output <html>, <head>, <body>
 - Use only: <h2> <h3> <p> <ul> <li> <hr> <strong> <a>
 - Target 1800 to 2300 words
-- Make it feel human and premium
-- Avoid generic filler
-- Avoid repeating the same sentence patterns
-- Keep paragraphs short, readable
+- Human. Premium. Non generic. No filler
+- Short paragraphs. Clear reasoning. Practical steps
+- Avoid repeating phrases and sentence patterns
 
-SEO + structure
-- First paragraph: include the main keyword exactly once
+Structure
+- First paragraph includes the main keyword exactly once
 - 6 to 8 H2 sections
-- Include practical steps and examples
-- Include a section titled exactly: Quick checklist
-- Include a section titled exactly: FAQ (4 questions, each answered)
-- Use one neutral reference to the source link at most once if relevant
-- Add an "Action plan" style section that tells readers what to do in the next 7 days
-- Add one short "Common mistakes" section
+- One section titled exactly: Common mistakes
+- One section titled exactly: Action plan for the next 7 days
+- One section titled exactly: Quick checklist
+- One section titled exactly: FAQ with 4 questions answered
 
-Insert this exact HTML block somewhere natural near the end (keep it unchanged):
+Insert this exact HTML block somewhere natural near the end (keep unchanged):
 {links_block}
 
-Source link:
+Source link (mention at most once and keep neutral):
 {source_link}
 """
 
@@ -218,8 +250,12 @@ Source link:
   )
   return (res.choices[0].message.content or "").strip()
 
+# -------------------------
+# PAGE TEMPLATE (QUIET)
+# -------------------------
 def build_quiet_template_page(slug: str, title: str, meta_desc: str, category: str, body_html: str):
   today = today_str()
+
   schema = {
     "@context": "https://schema.org",
     "@type": "Article",
@@ -232,7 +268,6 @@ def build_quiet_template_page(slug: str, title: str, meta_desc: str, category: s
   }
   schema_json = json.dumps(schema, ensure_ascii=False)
 
-  # 이미지 6장 전부 노출 (본문 상단 3장 + 중간 2장 + 하단 1장)
   images_html = f"""
 <div class="grid-2">
   <figure class="photo">
@@ -428,7 +463,6 @@ def main():
   posts = load_posts()
   used_slugs = {p.get("slug") for p in posts if p.get("slug")}
 
-  # 하루 5개 구성: 3 news + 2 finds
   plan = ["Trends & News", "Trends & News", "Trends & News", "Cool Finds", "Cool Finds"]
   plan = plan[:POSTS_PER_RUN] if POSTS_PER_RUN > 0 else ["Trends & News"]
 
@@ -440,22 +474,17 @@ def main():
     main_keyword = topic["title"].strip()
     source_link = topic.get("link", "")
 
-    # 제목 보정: 숫자/연도 포함 보장
     display_title = ensure_title_has_number_or_year(main_keyword, category)
-
     slug = safe_slug(display_title)
     if not slug:
       slug = safe_slug("post-" + datetime.now().strftime("%Y%m%d%H%M%S"))
 
-    # 이미지 6장
     ensure_images(slug, main_keyword, n=IMG_COUNT)
 
     meta_desc = smart_description(main_keyword, category)
 
-    # 내부링크 2개
     links = internal_link_candidates(posts, slug)
 
-    # 본문 생성 (첫 문단에 main_keyword 1회 포함 강제)
     body = ai_body_html(
       main_keyword=main_keyword,
       display_title=display_title,
