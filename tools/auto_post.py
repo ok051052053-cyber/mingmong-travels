@@ -34,7 +34,7 @@ HTTP_TIMEOUT = 25
 # 이미지: 무료(Wikimedia) 먼저, 실패/부적합이면 OpenAI로 "무조건" 생성
 IMAGE_PROVIDER = os.environ.get("IMAGE_PROVIDER", "openai").strip().lower()
 IMAGE_MODEL = os.environ.get("IMAGE_MODEL", "gpt-image-1").strip()
-IMAGE_SIZE = os.environ.get("IMAGE_SIZE", "1536x864").strip()
+IMAGE_SIZE = os.environ.get("IMAGE_SIZE", "1536x1024").strip()
 
 # 기존 이미지 재생성
 FORCE_REGEN_IMAGES = os.environ.get("FORCE_REGEN_IMAGES", "0").strip().lower() in ("1", "true", "yes", "y")
