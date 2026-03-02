@@ -21,7 +21,6 @@
       <a href="index.html">Home</a>
       <a href="about.html">About</a>
       <a href="contact.html">Contact</a>
-      <a class="btn primary" href="index.html">Home</a>
     </nav>
   </div>
 </header>
@@ -40,7 +39,6 @@
 
     <article class="card article">
       <h2>Latest</h2>
-      <p class="lead">Fresh posts, clean structure, no noise.</p>
       <hr class="hr" />
       <div id="latest-list"></div>
     </article>
@@ -64,6 +62,14 @@
             <span class="cat-text">
               <span class="cat-title">Cool Finds</span>
               <span class="cat-sub">Tools, gear, products worth using</span>
+            </span>
+          </a>
+
+          <a class="cat-item" role="listitem" href="category.html?cat=Guides">
+            <span class="cat-icon" aria-hidden="true">🧭</span>
+            <span class="cat-text">
+              <span class="cat-title">Guides</span>
+              <span class="cat-sub">How-to, checklists, practical steps</span>
             </span>
           </a>
         </div>
@@ -100,19 +106,11 @@
   const latestWrap = document.getElementById("latest-list");
   const hotWrap = document.getElementById("hot-now");
 
-  function imgUrlFor(p) {
-    // 홈에서는 posts 폴더가 아니라 assets 폴더를 직접 참조해야 함
-    // auto_post.py가 assets/posts/<slug>/1.jpg 를 만들도록 되어있음
-    return `assets/posts/${p.slug}/1.jpg`;
-  }
-
   function postCard(p) {
     const href = `posts/${p.slug}.html`;
-    const thumb = imgUrlFor(p);
-
     return `
       <a class="post-card" href="${href}">
-        <div class="thumb" style="background-image:url('${thumb}')" aria-hidden="true"></div>
+        <div class="thumb" aria-hidden="true"></div>
         <div>
           <div class="kicker">${p.category || "Article"}</div>
           <div class="post-title">${p.title}</div>
@@ -122,10 +120,13 @@
     `;
   }
 
-  const latest = [...posts].sort((a,b) => (b.date || "").localeCompare(a.date || ""));
-  latestWrap.innerHTML = latest.slice(0, 10).map(postCard).join("");
+  const latest = [...posts].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+  latestWrap.innerHTML = latest.map(postCard).join("");
 
-  const hot = [...posts].sort((a,b) => (b.views || 0) - (a.views || 0));
+  const hot = [...posts]
+    .filter(p => (p.views || 0) > 0)
+    .sort((a, b) => (b.views || 0) - (a.views || 0));
+
   hotWrap.innerHTML = hot.slice(0, 5).map(p => {
     const href = `posts/${p.slug}.html`;
     const v = (p.views || 0).toLocaleString();
