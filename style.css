@@ -286,3 +286,150 @@ a:hover{text-decoration:underline}
   color:var(--text);
   text-decoration:none;
 }
+
+/* ===== Premium Post Theme Add-on ===== */
+:root{
+  --gradA: rgba(37,99,235,.14);
+  --gradB: rgba(6,182,212,.12);
+  --ink:#0f172a;
+}
+
+/* subtle background glow on content pages */
+.page-bg{
+  background:
+    radial-gradient(900px 520px at 12% 10%, var(--gradA), transparent 60%),
+    radial-gradient(820px 520px at 85% 18%, var(--gradB), transparent 60%),
+    var(--bg);
+  min-height:100vh;
+}
+
+/* post header */
+.post-hero{
+  padding:26px 0 10px;
+}
+
+.post-meta{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  align-items:center;
+  margin:10px 0 0;
+  color:var(--muted);
+  font-size:13px;
+}
+
+.badge{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:6px 10px;
+  border-radius:999px;
+  border:1px solid var(--border);
+  background:rgba(255,255,255,.85);
+  font-weight:800;
+  color:var(--ink);
+}
+
+.post-title-xl{
+  font-size:clamp(30px,3.2vw,46px);
+  line-height:1.12;
+  letter-spacing:-.03em;
+  margin:0;
+}
+
+.post-lead{
+  margin:10px 0 0;
+  color:var(--muted);
+  font-size:17px;
+  max-width:72ch;
+}
+
+/* post body */
+.prose{
+  max-width:78ch;
+}
+
+.prose h2{
+  margin:26px 0 10px;
+  font-size:20px;
+  letter-spacing:-.01em;
+}
+
+.prose p{
+  margin:12px 0;
+}
+
+.quote{
+  border-left:4px solid var(--accent);
+  padding:12px 14px;
+  background:rgba(37,99,235,.06);
+  border-radius:12px;
+  margin:16px 0;
+  color:var(--ink);
+}
+
+.grid-2{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:14px;
+  margin:18px 0;
+}
+@media(min-width:900px){
+  .grid-2{grid-template-columns: 1fr 1fr;}
+}
+
+.photo{
+  border-radius:16px;
+  overflow:hidden;
+  border:1px solid var(--border);
+  background:#fff;
+  box-shadow: var(--shadow);
+}
+.photo img{
+  width:100%;
+  height:auto;
+  display:block;
+}
+.caption{
+  padding:10px 12px;
+  font-size:13px;
+  color:var(--muted);
+}
+
+.pill-list{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  margin:14px 0;
+  padding:0;
+  list-style:none;
+}
+.pill{
+  border:1px solid var(--border);
+  background:rgba(255,255,255,.9);
+  padding:8px 12px;
+  border-radius:999px;
+  font-weight:800;
+  font-size:13px;
+}
+
+/* sidebar post card links */
+.side-links a{
+  display:flex;
+  justify-content:space-between;
+  gap:10px;
+  padding:12px 12px;
+  border-radius:12px;
+  border:1px solid var(--border);
+  color:var(--text);
+  font-weight:850;
+  margin-top:10px;
+}
+.side-links a:hover{
+  background:#f9fafb;
+  text-decoration:none;
+}
+.side-links small{
+  color:var(--muted);
+  font-weight:700;
+}
