@@ -36,6 +36,9 @@ IMAGE_PROVIDER = os.environ.get("IMAGE_PROVIDER", "openai").strip().lower()
 IMAGE_MODEL = os.environ.get("IMAGE_MODEL", "gpt-image-1").strip()
 IMAGE_SIZE = os.environ.get("IMAGE_SIZE", "1536x864").strip()
 
+# 기존 이미지 재생성
+FORCE_REGEN_IMAGES = os.environ.get("FORCE_REGEN_IMAGES", "0").strip() in ("1", "true", "True")
+
 client = OpenAI(api_key=OPENAI_API_KEY)
 
 UA = {
@@ -168,6 +171,42 @@ def choose_internal_links(existing_posts, current_slug, k=2):
     return out
 
 
+def download_file(url: str, out_path: Path):
+    r = requests.get(url, timeout=HTTP_TIMEOUT, stream=True, headers=UA, allow_redirects=True)
+    r.raise_for_status()
+    with out_path.open("wb") as f:
+        for chunk in r.iter_content(chunk_size=1024 * 128):
+            if chunk:
+                f.write(chunk)
+
+
+def wikimedia_image_url(query: str):
+    q = (query or "").strip()
+    if not q:
+        return None
+
+    api = "https://commons.wikimedia.org/w/api.php"
+    params = {
+        "action": "query",
+        "format": "json",
+        "generator": "search",
+        "gsrsearch": q,
+        "gsrlimit": 1,
+        "prop": "imageinfo",
+        "iiprop": "url",
+        "iiurlwidth": 1600,
+    }
+    r = requests.get(api, params=params, timeout=HTTP_TIMEOUT, headers=UA)
+    r.raise_for_status()
+    j = r.json()
+    pages = (j.get("query") or {}).get("pages") or {}
+    for _, p in pages.items():
+        info = (p.get("imageinfo") or [])
+        if info:
+            return info[0].get("thumburl") or info[0].get("url")
+    return None
+
+
 # -----------------------------
 # Placeholder
 # -----------------------------
@@ -187,7 +226,7 @@ def write_svg_placeholder(path: Path):
 
 
 # -----------------------------
-# Body sanitize (code fence 제거)
+# Body sanitize
 # -----------------------------
 def sanitize_body_html(body_html: str) -> str:
     s = (body_html or "").strip()
@@ -240,7 +279,7 @@ def distribute_missing_markers(body_html: str) -> str:
 
 
 # -----------------------------
-# Extract text after marker (이미지-문단 매칭 핵심)
+# Extract text after marker
 # -----------------------------
 def strip_tags_keep_text(s: str) -> str:
     s = re.sub(r"<[^>]+>", " ", s or "")
@@ -294,7 +333,6 @@ Content to match:
 {p}
 """.strip()
 
-    # output_format=jpeg 로 안정적으로 파일 저장
     res = client.images.generate(
         model=IMAGE_MODEL,
         prompt=final_prompt,
@@ -317,8 +355,7 @@ Content to match:
     raise RuntimeError("OpenAI image response has no b64_json and no url")
 
 
-def is_free_image_ok(file_path: Path) -> bool:
-    # 최소 크기 체크만 해도 "빈 파일/HTML" 대부분 걸러짐
+def is_image_ok(file_path: Path) -> bool:
     try:
         return file_path.exists() and file_path.stat().st_size > 12_000
     except Exception:
@@ -340,7 +377,7 @@ def ensure_images_text_matched(slug: str, body_html_with_markers: str):
             jpg_path.unlink(missing_ok=True)
             svg_path.unlink(missing_ok=True)
 
-        if jpg_path.exists() and is_free_image_ok(jpg_path):
+        if jpg_path.exists() and is_image_ok(jpg_path):
             paths_for_post_page.append(f"../assets/posts/{slug}/{n}.jpg")
             continue
 
@@ -350,7 +387,6 @@ def ensure_images_text_matched(slug: str, body_html_with_markers: str):
         ok = False
 
         # 1) 무료 이미지 먼저 (Wikimedia)
-        #    ctx에서 핵심 키워드 몇 개 뽑아 검색어로 쓰기
         try:
             q = (ctx[:140] or "").strip()
             if not q:
@@ -359,31 +395,27 @@ def ensure_images_text_matched(slug: str, body_html_with_markers: str):
             free_url = wikimedia_image_url(q)
             if free_url:
                 download_file(free_url, jpg_path)
-                if is_free_image_ok(jpg_path):
+                if is_image_ok(jpg_path):
                     ok = True
-                    print(f"IMG OK (FREE): {slug} {n}.jpg")
                 else:
                     jpg_path.unlink(missing_ok=True)
-        except Exception as e:
-            print(f"FREE IMG FAIL: {slug} {n} -> {type(e).__name__}: {e}")
+        except Exception:
             ok = False
 
-        # 2) 무료가 별로면 OpenAI로 생성
+        # 2) 무료가 실패하면 OpenAI 생성
         if not ok and IMAGE_PROVIDER == "openai":
             try:
                 generate_image_openai(ctx, jpg_path)
-                if is_free_image_ok(jpg_path):
+                if is_image_ok(jpg_path):
                     ok = True
-                    print(f"IMG OK (OPENAI): {slug} {n}.jpg")
                 else:
                     jpg_path.unlink(missing_ok=True)
                     ok = False
-            except Exception as e:
-                print(f"OPENAI IMG FAIL: {slug} {n} -> {type(e).__name__}: {e}")
+            except Exception:
                 ok = False
 
-        # 3) 둘 다 실패하면 플레이스홀더
-        if ok and is_free_image_ok(jpg_path):
+        # 3) 둘 다 실패하면 placeholder
+        if ok and is_image_ok(jpg_path):
             paths_for_post_page.append(f"../assets/posts/{slug}/{n}.jpg")
         else:
             write_svg_placeholder(svg_path)
@@ -429,7 +461,7 @@ Hard requirements
 - The FIRST paragraph must include the exact keyword once: "{keyword}"
 - Include these sections: Practical tips, Quick checklist, FAQ (3-5 questions)
 - Tone: clean, modern, helpful. Not salesy.
-- Do NOT wrap your answer in markdown code fences like ```html
+- Do NOT wrap your answer in markdown code fences
 - Do NOT output <div class="prose"> wrapper. Only inner HTML.
 
 Image placement markers
@@ -665,14 +697,13 @@ def create_post_from_item(item, existing_posts):
     )
     body_html = (res.choices[0].message.content or "").strip()
 
-    # 마커 하나도 없으면 강제 추가
+    body_html = sanitize_body_html(body_html)
+
     if not re.search(r"<!--IMG[1-6]-->", body_html):
         body_html = body_html + "\n" + "\n".join([f"<!--IMG{i}-->" for i in range(1, IMG_COUNT + 1)]) + "\n"
 
-    # 마커가 빠져도 균등 보정 먼저
     body_html = distribute_missing_markers(body_html)
 
-    # 이미지 생성은 "마커 뒤 문단" 기반
     image_srcs = ensure_images_text_matched(slug, body_html)
 
     description = make_meta_description(keyword, item.get("source", ""))
@@ -691,7 +722,6 @@ def create_post_from_item(item, existing_posts):
 
     (POSTS_DIR / f"{slug}.html").write_text(html_doc, encoding="utf-8")
 
-    # 홈 썸네일은 assets/... 로 저장
     thumb = image_srcs[0].replace("../", "", 1) if image_srcs else f"assets/posts/{slug}/1.svg"
 
     new_item = {
