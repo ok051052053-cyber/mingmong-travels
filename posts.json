@@ -1,9 +1,10 @@
+// posts.json
 [
   {
     "slug": "beginner-s-guide-and-tips-stardew-valley-guide-ign-2026-gaideu",
     "title": "Beginner's Guide and Tips - Stardew Valley Guide - IGN 2026 가이드",
     "description": "Beginner's Guide and Tips - Stardew Valley Guide - IGN를 한 번에 정리합니다. 핵심 요점과 실전 체크리스트까지 담았습니다.",
-    "category": "Guides",
+    "category": "Productivity",
     "date": "2026-03-03",
     "views": 0,
     "thumbnail": "assets/posts/beginner-s-guide-and-tips-stardew-valley-guide-ign-2026-gaideu/1.jpg"
@@ -12,7 +13,7 @@
     "slug": "what-are-the-best-ai-tools-for-businesses-in-2026-tech-co",
     "title": "What Are The Best AI Tools for Businesses in 2026? - tech.co",
     "description": "What Are The Best AI Tools for Businesses in 2026? - tech.co를 한 번에 정리합니다. 핵심 요점과 실전 체크리스트까지 담았습니다.",
-    "category": "Cool Finds",
+    "category": "AI Tools",
     "date": "2026-03-03",
     "views": 0,
     "thumbnail": "assets/posts/what-are-the-best-ai-tools-for-businesses-in-2026-tech-co/1.jpg"
@@ -21,7 +22,7 @@
     "slug": "shares-in-trucking-and-logistics-firms-plunge-after-ai-freight-tool-launch-the-guardian-2026-jeongri",
     "title": "Shares in trucking and logistics firms plunge after AI freight tool launch - The Guardian 2026 정리",
     "description": "Shares in trucking and logistics firms plunge after AI freight tool launch - The Guardian를 한 번에 정리합니다. 핵심 요점과 실전 체크리스트까지 담았습니다.",
-    "category": "Cool Finds",
+    "category": "AI Tools",
     "date": "2026-03-03",
     "views": 0,
     "thumbnail": "assets/posts/shares-in-trucking-and-logistics-firms-plunge-after-ai-freight-tool-launch-the-guardian-2026-jeongri/1.jpg"
@@ -30,7 +31,7 @@
     "slug": "5-things-about-anthropics-new-ai-tool-sends-shudders-through-software-stocks-cnn-2026",
     "title": "5 Things About Anthropic’s new AI tool sends shudders through software stocks - CNN (2026)",
     "description": "Anthropic’s new AI tool sends shudders through software stocks - CNN. What it is. Why it matters. Practical tips you can use in 2026. Source: CNN.",
-    "category": "Cool Finds",
+    "category": "AI Tools",
     "date": "2026-03-03",
     "views": 0,
     "thumbnail": "assets/posts/5-things-about-anthropics-new-ai-tool-sends-shudders-through-software-stocks-cnn-2026/1.jpg"
@@ -39,7 +40,7 @@
     "slug": "5-things-about-boycottbhairavam-trends-in-tollywood-director-issues-apology-amid-backlash-deccan-chronicle-2026",
     "title": "5 Things About #BoycottBhairavam Trends in Tollywood, Director Issues Apology Amid Backlash - Deccan Chronicle (2026)",
     "description": "#BoycottBhairavam Trends in Tollywood, Director Issues Apology Amid Backlash - Deccan. What it is. Why it matters. Practical tips you can use in 2026. Sour",
-    "category": "Cool Finds",
+    "category": "Reviews",
     "date": "2026-03-03",
     "views": 0,
     "thumbnail": "assets/posts/5-things-about-boycottbhairavam-trends-in-tollywood-director-issues-apology-amid-backlash-deccan-chronicle-2026/1.jpg"
@@ -48,7 +49,7 @@
     "slug": "5-things-about-south-korea-blames-coupang-data-breach-on-management-failure-not-sophisticated-attack-reuters-2026",
     "title": "5 Things About South Korea blames Coupang data breach on management failure, not sophisticated attack - Reuters (2026)",
     "description": "South Korea blames Coupang data breach on management failure, not sophisticated attack -. What it is. Why it matters. Practical tips you can use in 2026. S",
-    "category": "Cool Finds",
+    "category": "AI Tools",
     "date": "2026-03-03",
     "views": 0,
     "thumbnail": "assets/posts/5-things-about-south-korea-blames-coupang-data-breach-on-management-failure-not-sophisticated-attack-reuters-2026/1.jpg"
