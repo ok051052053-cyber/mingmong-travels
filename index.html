@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>MingMong | Smart Tools for Young Professionals</title>
   <meta name="description" content="AI tools, productivity workflows, and practical ways to earn more. Clear guides for young professionals in the US and Europe." />
-  <link rel="stylesheet" href="style.css?v=1003" />
+  <link rel="stylesheet" href="style.css?v=1001" />
 
   <!-- Google tag (gtag.js) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-9PWEGHXHE7"></script>
@@ -106,14 +106,12 @@
 
     <article class="card article">
       <h2>Latest Articles</h2>
-      <p class="muted-note">All posts are shown here. Newest first.</p>
+      <p class="tiny-note">All posts are shown here. Newest first.</p>
       <hr class="hr" />
       <div id="latest-list" class="latest-grid"></div>
     </article>
 
     <aside class="sidebar">
-
-      <!-- ✅ Start here 박스 제거됨 -->
 
       <div class="card related">
         <h4>Popular picks</h4>
@@ -166,24 +164,18 @@
     return "#";
   }
 
-  function parseDateKey(p) {
-    // prefer full ISO datetime (2026-03-03T01:23:45Z)
-    const d = String((p && (p.date_time || p.datetime || p.date)) || "");
-    if (!d) return 0;
-
-    // If it is ISO, Date.parse works
+  function dateKey(p) {
+    const d = String((p && p.date) || "");
     const t = Date.parse(d);
     if (!Number.isNaN(t)) return t;
 
-    // fallback: YYYY-MM-DD string
-    // convert to time by appending T00:00:00Z
+    // fallback: YYYY-MM-DD
     const t2 = Date.parse(d + "T00:00:00Z");
     if (!Number.isNaN(t2)) return t2;
 
     return 0;
   }
 
-  // home card: image top then title then desc
   function postCardVertical(p) {
     const href = postHref(p);
     const t = thumbUrl(p);
@@ -206,7 +198,7 @@
     const wrap = document.getElementById("popular-picks");
     if (!wrap) return;
 
-    const pool = posts.filter(p => p && p.slug).slice(0, 8);
+    const pool = posts.filter(p => p && p.slug).slice(0, 6);
     if (!pool.length) {
       wrap.innerHTML = `<div class="tiny-note">No posts yet</div>`;
       return;
@@ -230,11 +222,11 @@
 
     posts = posts
       .filter(p => p && p.slug)
-      .sort((a, b) => parseDateKey(b) - parseDateKey(a));
+      .sort((a, b) => dateKey(b) - dateKey(a)); // ✅ newest first
 
     const latestWrap = document.getElementById("latest-list");
     if (latestWrap) {
-      // 홈에서 전부 보여야 한다고 했으니 제한 없이 전부 렌더
+      // ✅ show ALL posts
       latestWrap.innerHTML = posts.map(postCardVertical).join("");
     }
 
