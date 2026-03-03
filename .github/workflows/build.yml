@@ -9,7 +9,6 @@ permissions:
 
 jobs:
   build:
-    # github-actions[bot]가 만든 커밋이면 다시 빌드하지 않음 (무한루프 방지)
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
 
@@ -32,16 +31,12 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          # ✅ index.html은 절대 add 하지 않음
           git add sitemap.xml
-
-          # 변경 없으면 커밋 안 함
           git diff --staged --quiet || git commit -m "Auto build sitemap"
 
       - name: Push changes (only if committed)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # 방금 커밋이 "Auto build sitemap"이면 push, 아니면 종료
           git log -1 --pretty=%B | grep -q "Auto build sitemap" || exit 0
           git push
