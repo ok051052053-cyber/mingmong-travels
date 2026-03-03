@@ -464,3 +464,69 @@ a:hover{text-decoration:underline}
   color:var(--text);
   text-decoration:none;
 }
+
+/* ===== PC에서 Start here가 줄글처럼 보일 때(구버전 side-links 대응) ===== */
+
+.side-links{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+
+.side-links a{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:12px 12px;
+  border-radius:14px;
+  border:1px solid var(--border);
+  background:#fff;
+  color:var(--text);
+  text-decoration:none;
+  font-weight:900;
+  min-width:0;
+}
+
+.side-links a:hover{
+  background:#f9fafb;
+  text-decoration:none;
+}
+
+.side-links a span{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  min-width:0;
+  font-size:14px;
+  letter-spacing:-.01em;
+}
+
+.side-links a span::before{
+  content:"";
+  width:34px;
+  height:34px;
+  border-radius:12px;
+  border:1px solid var(--border);
+  background:#f3f4f6;
+  flex:0 0 auto;
+}
+
+.side-links a:nth-child(1) span::before{ content:"🤖"; display:flex; align-items:center; justify-content:center; }
+.side-links a:nth-child(2) span::before{ content:"💸"; display:flex; align-items:center; justify-content:center; }
+.side-links a:nth-child(3) span::before{ content:"⚡"; display:flex; align-items:center; justify-content:center; }
+.side-links a:nth-child(4) span::before{ content:"🧾"; display:flex; align-items:center; justify-content:center; }
+
+.side-links a small{
+  display:block;
+  color:var(--muted);
+  font-weight:800;
+  font-size:12px;
+  text-align:right;
+  flex:0 0 auto;
+}
+
+/* ✅ 혹시라도 줄바꿈/겹침 생기면 강제 */
+.side-links a, .start-item{
+  white-space:normal;
+}
