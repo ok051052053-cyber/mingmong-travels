@@ -76,6 +76,11 @@
       </div>
 
       <div class="card related">
+        <h4>Popular Topics</h4>
+        <div id="popular-topics" class="topic-list"></div>
+      </div>
+
+      <div class="card related">
         <h4>Hot now!</h4>
         <div id="hot-now"></div>
         <p class="tiny-note">Sorted by views from posts.json</p>
@@ -99,25 +104,13 @@
 </footer>
 
 <script>
-(async function () {
-  let posts = [];
-  try{
-    const res = await fetch("posts.json", { cache: "no-store" });
-    posts = await res.json();
-    if(!Array.isArray(posts)) posts = [];
-  }catch(e){
-    posts = [];
-  }
-
-  const latestWrap = document.getElementById("latest-list");
-  const hotWrap = document.getElementById("hot-now");
-
+(function () {
   function esc(s) {
     return String(s || "")
-      .replace(/&/g,"&amp;")
-      .replace(/</g,"&lt;")
-      .replace(/>/g,"&gt;")
-      .replace(/"/g,"&quot;");
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
   }
 
   function normalizeImgPath(pth) {
@@ -132,9 +125,9 @@
     return normalizeImgPath(raw);
   }
 
-  function postHref(p){
-    if(p && p.url) return p.url;
-    if(p && p.slug) return `posts/${p.slug}.html`;
+  function postHref(p) {
+    if (p && p.url) return p.url;
+    if (p && p.slug) return `posts/${p.slug}.html`;
     return "#";
   }
 
@@ -156,32 +149,107 @@
     `;
   }
 
-  if(latestWrap){
-    const latest = [...posts].sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
-    latestWrap.innerHTML = latest.map(postCard).join("");
+  function iconForCategory(cat) {
+    const c = String(cat || "").toLowerCase();
+    if (c.includes("trend")) return "📰";
+    if (c.includes("cool")) return "✨";
+    if (c.includes("guide")) return "🧭";
+    return "📌";
   }
 
-  if(hotWrap){
-    const sortedByViews = [...posts].sort((a,b) => (Number(b.views)||0) - (Number(a.views)||0));
-    const maxViews = sortedByViews.reduce((m,p) => Math.max(m, Number(p.views)||0), 0);
+  function sampleRandom(arr, n) {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const tmp = a[i];
+      a[i] = a[j];
+      a[j] = tmp;
+    }
+    return a.slice(0, n);
+  }
+
+  function renderPopularTopics(posts) {
+    const wrap = document.getElementById("popular-topics");
+    if (!wrap) return;
+
+    const picked = sampleRandom(posts.filter(p => p && p.slug), 3);
+
+    if (picked.length === 0) {
+      wrap.innerHTML = `<div class="tiny-note">No posts yet</div>`;
+      return;
+    }
+
+    wrap.innerHTML = picked.map(p => {
+      const href = postHref(p);
+      const ico = iconForCategory(p.category);
+      const title = esc(p.title || "Untitled");
+      const desc = esc(p.description || p.category || "Popular pick");
+      return `
+        <a class="topic-item" href="${href}">
+          <span class="topic-ico">${ico}</span>
+          <span class="topic-text">
+            <span class="topic-title">${title}</span>
+            <span class="topic-desc">${desc}</span>
+          </span>
+        </a>
+      `;
+    }).join("");
+  }
+
+  function renderHotNow(posts) {
+    const hotWrap = document.getElementById("hot-now");
+    if (!hotWrap) return;
+
+    const sortedByViews = posts
+      .filter(p => p && p.slug)
+      .sort((a, b) => (Number(b.views) || 0) - (Number(a.views) || 0));
+
+    const maxViews = sortedByViews.reduce((m, p) => Math.max(m, Number(p.views) || 0), 0);
 
     let hot = sortedByViews.slice(0, 5);
 
-    if(maxViews === 0){
-      const latestFallback = [...posts].sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
-      hot = latestFallback.slice(0, 5);
+    if (hot.length === 0) {
+      hotWrap.innerHTML = `<div class="tiny-note">No posts yet</div>`;
+      return;
     }
 
-    if(hot.length === 0){
-      hotWrap.innerHTML = `<div class="tiny-note">No posts yet</div>`;
-    }else{
-      hotWrap.innerHTML = hot.map(p => {
-        const href = postHref(p);
-        const v = (Number(p.views)||0).toLocaleString();
-        return `<a class="hot-link" href="${href}"><span>${esc(p.title || "Untitled")}</span><span class="hot-views">${v}</span></a>`;
-      }).join("");
+    if (maxViews === 0) {
+      hot = posts
+        .filter(p => p && p.slug)
+        .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")))
+        .slice(0, 5);
     }
+
+    hotWrap.innerHTML = hot.map(p => {
+      const href = postHref(p);
+      const v = (Number(p.views) || 0).toLocaleString();
+      return `<a class="hot-link" href="${href}"><span>${esc(p.title || "Untitled")}</span><span class="hot-views">${v}</span></a>`;
+    }).join("");
   }
+
+  async function main() {
+    let posts = [];
+    try {
+      const res = await fetch("posts.json", { cache: "no-store" });
+      posts = await res.json();
+      if (!Array.isArray(posts)) posts = [];
+    } catch (e) {
+      posts = [];
+    }
+
+    const latestWrap = document.getElementById("latest-list");
+    if (latestWrap) {
+      const latest = posts
+        .filter(p => p && p.slug)
+        .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
+      latestWrap.innerHTML = latest.map(postCard).join("");
+    }
+
+    renderPopularTopics(posts);
+    renderHotNow(posts);
+  }
+
+  main();
 })();
 </script>
 
