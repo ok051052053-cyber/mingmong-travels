@@ -119,33 +119,7 @@
 
       <div class="card related">
         <h4>Popular Topics</h4>
-
-        <div class="topic-list">
-          <a class="topic-item" href="#">
-            <span class="topic-ico">🧰</span>
-            <span class="topic-text">
-              <span class="topic-title">Best tools for remote work</span>
-              <span class="topic-desc">Work, focus, modern setup</span>
-            </span>
-          </a>
-
-          <a class="topic-item" href="#">
-            <span class="topic-ico">🧳</span>
-            <span class="topic-text">
-              <span class="topic-title">Top travel essentials for 20s</span>
-              <span class="topic-desc">Travel, packing, practical picks</span>
-            </span>
-          </a>
-
-          <a class="topic-item" href="#">
-            <span class="topic-ico">🧭</span>
-            <span class="topic-text">
-              <span class="topic-title">Digital nomad lifestyle</span>
-              <span class="topic-desc">Mobility, routines, freedom</span>
-            </span>
-          </a>
-        </div>
-
+        <div id="popular-topics" class="topic-list"></div>
       </div>
 
     </aside>
@@ -164,6 +138,82 @@
     </div>
   </div>
 </footer>
+
+<script>
+(function () {
+  function esc(s) {
+    return String(s || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  function postHref(p) {
+    if (p && p.url) return p.url;
+    if (p && p.slug) return `posts/${p.slug}.html`;
+    return "#";
+  }
+
+  function iconForCategory(cat) {
+    const c = String(cat || "").toLowerCase();
+    if (c.includes("trend")) return "📰";
+    if (c.includes("cool")) return "✨";
+    if (c.includes("guide")) return "🧭";
+    return "📌";
+  }
+
+  function sampleRandom(arr, n) {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const tmp = a[i];
+      a[i] = a[j];
+      a[j] = tmp;
+    }
+    return a.slice(0, n);
+  }
+
+  async function main() {
+    const wrap = document.getElementById("popular-topics");
+    if (!wrap) return;
+
+    let posts = [];
+    try {
+      const res = await fetch("posts.json", { cache: "no-store" });
+      posts = await res.json();
+      if (!Array.isArray(posts)) posts = [];
+    } catch (e) {
+      posts = [];
+    }
+
+    const picked = sampleRandom(posts.filter(p => p && p.slug), 3);
+
+    if (picked.length === 0) {
+      wrap.innerHTML = `<div class="tiny-note">No posts yet</div>`;
+      return;
+    }
+
+    wrap.innerHTML = picked.map(p => {
+      const href = postHref(p);
+      const ico = iconForCategory(p.category);
+      const title = esc(p.title || "Untitled");
+      const desc = esc(p.description || p.category || "Popular pick");
+      return `
+        <a class="topic-item" href="${href}">
+          <span class="topic-ico">${ico}</span>
+          <span class="topic-text">
+            <span class="topic-title">${title}</span>
+            <span class="topic-desc">${desc}</span>
+          </span>
+        </a>
+      `;
+    }).join("");
+  }
+
+  main();
+})();
+</script>
 
 </body>
 </html>
