@@ -105,6 +105,9 @@
 
 <script>
 (function () {
+  const LS_KEY = "mm_popular_slugs_v1";
+  const LS_DAY_KEY = "mm_popular_day_v1";
+
   function esc(s) {
     return String(s || "")
       .replace(/&/g, "&amp;")
@@ -149,6 +152,14 @@
     `;
   }
 
+  function todayKey() {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  }
+
   function sampleRandom(arr, n) {
     const a = arr.slice();
     for (let i = a.length - 1; i > 0; i--) {
@@ -160,15 +171,53 @@
     return a.slice(0, n);
   }
 
+  function randomViews(min, max) {
+    const x = Math.floor(min + Math.random() * (max - min + 1));
+    return x;
+  }
+
+  function loadSavedPopularSlugs() {
+    try {
+      const day = localStorage.getItem(LS_DAY_KEY);
+      if (day !== todayKey()) return null;
+      const raw = localStorage.getItem(LS_KEY);
+      if (!raw) return null;
+      const slugs = JSON.parse(raw);
+      if (!Array.isArray(slugs)) return null;
+      return slugs.filter(Boolean);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function savePopularSlugs(slugs) {
+    try {
+      localStorage.setItem(LS_DAY_KEY, todayKey());
+      localStorage.setItem(LS_KEY, JSON.stringify(slugs));
+    } catch (e) {}
+  }
+
   function renderPopularTitles(posts) {
     const wrap = document.getElementById("popular-topics");
-    if (!wrap) return;
+    if (!wrap) return [];
 
-    const picked = sampleRandom(posts.filter(p => p && p.slug), 3);
+    const pool = posts.filter(p => p && p.slug);
+    if (pool.length === 0) {
+      wrap.innerHTML = `<div class="tiny-note">No posts yet</div>`;
+      return [];
+    }
+
+    const saved = loadSavedPopularSlugs();
+    let picked = [];
+
+    if (saved && saved.length) {
+      const bySlug = new Map(pool.map(p => [p.slug, p]));
+      picked = saved.map(s => bySlug.get(s)).filter(Boolean).slice(0, 3);
+    }
 
     if (picked.length === 0) {
-      wrap.innerHTML = `<div class="tiny-note">No posts yet</div>`;
-      return;
+      picked = sampleRandom(pool, 3);
+      savePopularSlugs(picked.map(p => p.slug));
     }
 
     wrap.innerHTML = picked.map(p => {
@@ -176,36 +225,38 @@
       const title = esc(p.title || "Untitled");
       return `<a class="hot-link" href="${href}"><span>${title}</span></a>`;
     }).join("");
+
+    return picked.map(p => p.slug);
   }
 
-  function renderHotNow(posts) {
+  function renderHotNow(posts, excludeSlugs) {
     const hotWrap = document.getElementById("hot-now");
     if (!hotWrap) return;
 
-    const sortedByViews = posts
-      .filter(p => p && p.slug)
-      .sort((a, b) => (Number(b.views) || 0) - (Number(a.views) || 0));
+    const exclude = new Set(excludeSlugs || []);
+    const pool = posts.filter(p => p && p.slug && !exclude.has(p.slug));
 
-    const maxViews = sortedByViews.reduce((m, p) => Math.max(m, Number(p.views) || 0), 0);
-
-    let hot = sortedByViews.slice(0, 5);
-
-    if (hot.length === 0) {
+    if (pool.length === 0) {
       hotWrap.innerHTML = `<div class="tiny-note">No posts yet</div>`;
       return;
     }
 
+    const sortedByViews = pool.slice().sort((a, b) => (Number(b.views) || 0) - (Number(a.views) || 0));
+    const maxViews = sortedByViews.reduce((m, p) => Math.max(m, Number(p.views) || 0), 0);
+
+    let hot = sortedByViews.slice(0, 5);
+
     if (maxViews === 0) {
-      hot = posts
-        .filter(p => p && p.slug)
+      hot = pool
+        .slice()
         .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")))
         .slice(0, 5);
     }
 
     hotWrap.innerHTML = hot.map(p => {
       const href = postHref(p);
-      const v = (Number(p.views) || 0).toLocaleString();
-      return `<a class="hot-link" href="${href}"><span>${esc(p.title || "Untitled")}</span><span class="hot-views">${v}</span></a>`;
+      const fake = randomViews(10000, 98000).toLocaleString();
+      return `<a class="hot-link" href="${href}"><span>${esc(p.title || "Untitled")}</span><span class="hot-views">${fake}</span></a>`;
     }).join("");
   }
 
@@ -227,8 +278,8 @@
       latestWrap.innerHTML = latest.map(postCard).join("");
     }
 
-    renderPopularTitles(posts);
-    renderHotNow(posts);
+    const popularSlugs = renderPopularTitles(posts);
+    renderHotNow(posts, popularSlugs);
   }
 
   main();
