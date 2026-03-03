@@ -106,39 +106,43 @@
   const latestWrap = document.getElementById("latest-list");
   const hotWrap = document.getElementById("hot-now");
 
-  function getThumb(p) {
-    return p.thumbnail || p.image || `assets/posts/${p.slug}/1.jpg`;
+  function esc(s) {
+    return String(s || "")
+      .replace(/&/g,"&amp;")
+      .replace(/</g,"&lt;")
+      .replace(/>/g,"&gt;")
+      .replace(/"/g,"&quot;");
   }
 
-function esc(s) {
-  return String(s || "")
-    .replace(/&/g,"&amp;")
-    .replace(/</g,"&lt;")
-    .replace(/>/g,"&gt;")
-    .replace(/"/g,"&quot;");
-}
+  function normalizeImgPath(pth) {
+    const s = String(pth || "");
+    if (!s) return "";
+    if (s.toLowerCase().endsWith(".svg")) return s.slice(0, -4) + ".jpg";
+    return s;
+  }
 
-function thumbUrl(p) {
-  return p.thumbnail || p.image || "";
-}
+  function thumbUrl(p) {
+    const raw = p.thumbnail || p.image || `assets/posts/${p.slug}/1.jpg`;
+    return normalizeImgPath(raw);
+  }
 
-function postCard(p) {
-  const href = `posts/${p.slug}.html`;
-  const t = thumbUrl(p);
-  const thumbStyle = t ? `style="background-image:url('${esc(t)}')"` : "";
-  const thumbClass = t ? "thumb has-img" : "thumb";
+  function postCard(p) {
+    const href = `posts/${p.slug}.html`;
+    const t = thumbUrl(p);
+    const thumbStyle = t ? `style="background-image:url('${esc(t)}')"` : "";
+    const thumbClass = t ? "thumb has-img" : "thumb";
 
-  return `
-    <a class="post-card" href="${href}">
-      <div class="${thumbClass}" ${thumbStyle} aria-hidden="true"></div>
-      <div>
-        <div class="kicker">${esc(p.category || "Article")}</div>
-        <div class="post-title">${esc(p.title)}</div>
-        <p class="post-desc">${esc(p.description || "")}</p>
-      </div>
-    </a>
-  `;
-}
+    return `
+      <a class="post-card" href="${href}">
+        <div class="${thumbClass}" ${thumbStyle} aria-hidden="true"></div>
+        <div>
+          <div class="kicker">${esc(p.category || "Article")}</div>
+          <div class="post-title">${esc(p.title)}</div>
+          <p class="post-desc">${esc(p.description || "")}</p>
+        </div>
+      </a>
+    `;
+  }
 
   const latest = [...posts].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
   latestWrap.innerHTML = latest.map(postCard).join("");
@@ -150,7 +154,7 @@ function postCard(p) {
   hotWrap.innerHTML = hot.slice(0, 5).map(p => {
     const href = `posts/${p.slug}.html`;
     const v = (p.views || 0).toLocaleString();
-    return `<a class="hot-link" href="${href}"><span>${p.title}</span><span class="hot-views">${v}</span></a>`;
+    return `<a class="hot-link" href="${href}"><span>${esc(p.title)}</span><span class="hot-views">${v}</span></a>`;
   }).join("");
 })();
 </script>
