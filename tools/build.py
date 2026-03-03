@@ -1,3 +1,4 @@
+import os
 import json
 from pathlib import Path
 
@@ -5,12 +6,15 @@ ROOT = Path(__file__).resolve().parents[1]
 POSTS_JSON = ROOT / "posts.json"
 SITEMAP = ROOT / "sitemap.xml"
 
-SITE_URL = "https://ok051052053-cyber.github.io/mingmong-travels"
+# ✅ 지금 도메인으로
+SITE_URL = os.environ.get("SITE_URL", "https://mingmonglife.com").rstrip("/")
 
 
 def load_posts():
     with open(POSTS_JSON, "r", encoding="utf-8") as f:
         posts = json.load(f)
+    if not isinstance(posts, list):
+        return []
     posts.sort(key=lambda x: x.get("date", ""), reverse=True)
     return posts
 
@@ -38,7 +42,7 @@ def main():
     if not posts:
         raise SystemExit("posts.json is empty")
     build_sitemap(posts)
-    print("Built sitemap.xml")
+    print("Built sitemap.xml for", SITE_URL)
 
 
 if __name__ == "__main__":
