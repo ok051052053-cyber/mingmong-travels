@@ -505,3 +505,46 @@ a:hover{text-decoration:underline}
   -webkit-background-clip:text;
   -webkit-text-fill-color:transparent;
 }
+
+/* ===== Premium Hero Upgrade ===== */
+
+.hero-upgraded{
+  padding:60px 0 40px;
+}
+
+.hero-badge{
+  display:inline-block;
+  font-size:12px;
+  font-weight:800;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  padding:6px 12px;
+  border-radius:999px;
+  background:rgba(37,99,235,.08);
+  color:#2563eb;
+  margin-bottom:18px;
+}
+
+.hero-title{
+  font-size:clamp(48px,6vw,88px);
+  line-height:1.05;
+  letter-spacing:-.05em;
+  margin:0 0 20px;
+  font-weight:900;
+}
+
+.hero-line{
+  display:block;
+}
+
+.hero-accent{
+  background:linear-gradient(90deg,#2563eb,#06b6d4);
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+}
+
+.hero-lead{
+  font-size:18px;
+  max-width:600px;
+  color:#64748b;
+}
