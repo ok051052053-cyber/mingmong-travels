@@ -6,35 +6,32 @@ POSTS_JSON = ROOT / "posts.json"
 
 posts = json.loads(POSTS_JSON.read_text(encoding="utf-8"))
 
-changed = 0
-
-def to_jpg(x: str):
-    if not x:
-        return x
-    s = str(x)
-    if s.lower().endswith(".svg"):
-        return s[:-4] + ".jpg"
-    return s
-
+fixed = 0
 for p in posts:
-    thumb = p.get("thumbnail") or ""
-    img = p.get("image") or ""
     slug = p.get("slug") or ""
 
-    new_thumb = to_jpg(thumb)
-    new_img = to_jpg(img)
+    def to_jpg(x: str):
+        if not x:
+            return x
+        if str(x).lower().endswith(".svg"):
+            return str(x)[:-4] + ".jpg"
+        return x
 
-    # thumbnail 없으면 강제로 채움
-    if (not new_thumb) and slug:
-        new_thumb = f"assets/posts/{slug}/1.jpg"
+    if "thumbnail" in p:
+        newv = to_jpg(p.get("thumbnail"))
+        if newv != p.get("thumbnail"):
+            p["thumbnail"] = newv
+            fixed += 1
 
-    if new_thumb != thumb:
-        p["thumbnail"] = new_thumb
-        changed += 1
+    if "image" in p and p.get("image"):
+        newv = to_jpg(p.get("image"))
+        if newv != p.get("image"):
+            p["image"] = newv
+            fixed += 1
 
-    if img and (new_img != img):
-        p["image"] = new_img
-        changed += 1
+    if (not p.get("thumbnail")) and slug:
+        p["thumbnail"] = f"assets/posts/{slug}/1.jpg"
+        fixed += 1
 
 POSTS_JSON.write_text(json.dumps(posts, indent=2, ensure_ascii=False), encoding="utf-8")
-print("fixed:", changed)
+print("fixed:", fixed)
