@@ -13,9 +13,6 @@
 
   --gradA: rgba(37,99,235,.14);
   --gradB: rgba(6,182,212,.12);
-  --ink:#0f172a;
-
-  --postMax: 920px;
 }
 
 *{box-sizing:border-box}
@@ -27,9 +24,15 @@ body{
   background:var(--bg);
   line-height:1.7;
   -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
 }
 
-img{max-width:100%;height:auto}
+img{
+  max-width:100%;
+  height:auto;
+  display:block;
+}
+
 a{color:var(--accent);text-decoration:none}
 a:hover{text-decoration:underline}
 
@@ -67,7 +70,7 @@ a:hover{text-decoration:underline}
   font-weight:900;
   letter-spacing:-.02em;
   color:var(--text);
-  padding-left:6px; /* ✅ 아이콘/브랜드가 벽에 딱 붙지 않게 */
+  padding-left:6px; /* ✅ 아이콘이 끝에 딱 붙는 느낌 제거 */
 }
 .mark{
   width:36px;
@@ -94,12 +97,20 @@ a:hover{text-decoration:underline}
   text-decoration:none;
 }
 
-/* 모바일에서 헤더 넘침 방지 */
+/* ✅ 모바일에서 nav가 가로로 튀어나가는 것 방지 */
 @media(max-width:520px){
-  .topbar-inner{gap:10px}
-  .nav{gap:6px}
-  .nav a{padding:8px 10px;font-size:13px}
-  .brand span:last-child{font-size:16px}
+  .topbar-inner{
+    gap:10px;
+  }
+  .nav{
+    gap:6px;
+    flex-wrap:nowrap;
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+    scrollbar-width:none;
+  }
+  .nav::-webkit-scrollbar{display:none;}
+  .nav a{white-space:nowrap;}
 }
 
 /* BUTTON */
@@ -161,10 +172,9 @@ a:hover{text-decoration:underline}
   margin-top:16px;
 }
 @media(max-width:520px){
-  .hero{padding:26px 0 12px}
-  .lead{font-size:16px}
-  .hero-cta{gap:8px}
-  .btn{padding:10px 12px}
+  .hero-cta .btn{
+    flex:1 1 160px;
+  }
 }
 
 /* HOME BLOCK */
@@ -172,6 +182,7 @@ a:hover{text-decoration:underline}
 .home-block-head{margin:6px 0 12px}
 .home-h2{margin:0;font-size:20px}
 .home-sub{margin:6px 0 0;color:var(--muted);font-size:13px}
+.muted-note{margin:8px 0 0;color:var(--muted);font-size:13px}
 
 /* GRID */
 .layout{
@@ -182,11 +193,6 @@ a:hover{text-decoration:underline}
 }
 @media(min-width:960px){
   .layout{grid-template-columns:1fr 320px;}
-}
-
-/* ✅ 모바일은 무조건 1컬럼으로 고정 */
-@media(max-width:959px){
-  .layout{grid-template-columns:1fr}
 }
 
 /* CARD */
@@ -269,7 +275,7 @@ a:hover{text-decoration:underline}
   color:rgba(255,255,255,.9);
 }
 
-/* Latest grid */
+/* ✅ 홈 Latest 영역: 카드 그리드 */
 .latest-grid{
   display:grid;
   grid-template-columns: 1fr;
@@ -287,6 +293,7 @@ a:hover{text-decoration:underline}
   border-radius:14px;
   transition:transform .18s ease, background .18s ease;
   border:1px solid transparent;
+  min-width:0;
 }
 .post-card:hover{
   background:#f9fafb;
@@ -321,6 +328,7 @@ a:hover{text-decoration:underline}
   font-size:13px;
   margin:0;
 }
+.post-body{min-width:0}
 
 /* vertical card for home */
 .post-card--v{
@@ -330,65 +338,22 @@ a:hover{text-decoration:underline}
 }
 .post-card--v .thumb{
   width:100%;
-  height:180px;
+  height:220px;
   border-radius:14px;
 }
-@media(max-width:420px){
-  .post-card--v .thumb{height:160px;}
+@media(max-width:520px){
+  .post-card--v .thumb{height:220px;}
 }
-.post-body{min-width:0}
+@media(max-width:420px){
+  .post-card--v .thumb{height:200px;}
+}
 
 /* SIDEBAR */
 .sidebar{display:flex;flex-direction:column;gap:14px}
-.sidebox, .related{padding:16px}
-.sidebox h4, .related h4{margin:0 0 10px;font-size:14px}
+.related{padding:16px}
+.related h4{margin:0 0 10px;font-size:14px}
 
-/* ✅ Start here: 예쁘게 카드형 리스트 */
-.side-links{
-  display:flex;
-  flex-direction:column;
-  gap:10px;
-}
-.side-links a{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:12px;
-  padding:12px 12px;
-  border-radius:12px;
-  border:1px solid var(--border);
-  color:var(--text);
-  font-weight:900;
-  background:#fff;
-}
-.side-links a:hover{
-  background:#f9fafb;
-  text-decoration:none;
-}
-.side-links a span{
-  display:flex;
-  align-items:center;
-  gap:10px;
-}
-.side-links a span::before{
-  content:"";
-  width:28px;
-  height:28px;
-  border-radius:10px;
-  background:linear-gradient(135deg,var(--accent),var(--accent2));
-  box-shadow:0 8px 18px rgba(37,99,235,.18);
-  flex:0 0 auto;
-}
-.side-links small{
-  color:var(--muted);
-  font-weight:750;
-  white-space:nowrap;
-}
-@media(max-width:520px){
-  .side-links small{white-space:normal}
-}
-
-/* Popular picks */
+/* link list */
 #popular-picks{display:flex;flex-direction:column;gap:10px}
 .hot-link{
   display:flex;
@@ -440,76 +405,88 @@ a:hover{text-decoration:underline}
 }
 
 /* =========================
-   POST PAGE (폭 통일 핵심)
+   POST PAGE FIX
+   - 제목 본문 사진 가로폭 정렬
+   - 모바일에서 화면에 딱 맞게
    ========================= */
+
 .post-page{
-  padding:18px 0 48px;
+  padding:18px 0 60px;
 }
+
 .post-shell{
-  max-width:var(--postMax);
+  width:100%;
+  max-width:860px;
   margin:0 auto;
 }
+
 .post-header{
-  margin:10px 0 14px;
+  margin:8px 0 14px;
 }
-.post-header .kicker{
-  margin:0 0 6px;
-}
+
 .post-h1{
-  margin:0;
-  font-size:clamp(28px,3.2vw,44px);
-  line-height:1.15;
-  letter-spacing:-.02em;
-  font-weight:950;
+  margin:8px 0 10px;
+  font-size:clamp(30px, 4.6vw, 52px);
+  line-height:1.12;
+  letter-spacing:-.03em;
 }
+
 .post-meta{
-  margin-top:10px;
-  color:var(--muted);
-  font-size:13px;
   display:flex;
   flex-wrap:wrap;
-  gap:8px;
+  gap:10px;
+  color:var(--muted);
+  font-size:14px;
 }
+
 .post-hero{
-  margin:16px 0 18px;
+  width:100%;
+  border-radius:18px;
+  overflow:hidden;
+  border:1px solid var(--border);
+  background:#f8fafc;
+  margin:14px 0 18px;
 }
 .post-hero img{
   width:100%;
+  height:auto;
   display:block;
-  border-radius:18px;
-  border:1px solid var(--border);
-}
-.post-content{
-  font-size:16px;
-}
-.post-content h2{
-  margin:22px 0 10px;
-  font-size:18px;
-  letter-spacing:-.01em;
-}
-.post-content p{
-  margin:10px 0;
-  color:#0f172a;
-}
-.post-content img{
-  width:100%;
-  display:block;
-  border-radius:18px;
-  border:1px solid var(--border);
-  margin:16px 0;
-}
-.post-content a{
-  text-decoration:underline;
-}
-.post-content hr{
-  border:0;
-  height:1px;
-  background:var(--border);
-  margin:18px 0;
 }
 
-/* 작은 화면 글 가독성 */
+.post-content{
+  width:100%;
+  background:#fff;
+  border:1px solid var(--border);
+  border-radius:18px;
+  padding:18px;
+  box-shadow:var(--shadow);
+}
+
+.post-content h2{
+  margin:18px 0 10px;
+  line-height:1.2;
+  letter-spacing:-.02em;
+}
+
+.post-content p{
+  margin:10px 0;
+  color:#1f2937;
+}
+
+.post-content ul{
+  margin:10px 0 10px 18px;
+}
+
+.post-content img{
+  width:100%;
+  height:auto;
+  border-radius:16px;
+  border:1px solid var(--border);
+  margin:14px 0;
+}
+
+/* 모바일에서 좌우 넘침 방지 */
 @media(max-width:520px){
-  .post-content{font-size:15px}
-  .post-shell{max-width:100%}
+  .post-shell{max-width:100%;}
+  .post-content{padding:16px;}
 }
