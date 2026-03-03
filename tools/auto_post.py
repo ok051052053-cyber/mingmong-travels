@@ -32,8 +32,8 @@ IMG_COUNT = 6
 HTTP_TIMEOUT = 25
 
 # 이미지 정책
-# - 무료(Wikimedia) 우선
-# - 실패하면 OpenAI로 무조건 생성
+# - 무료(Wikimedia) 먼저
+# - 실패하면 OpenAI로 무조건 생성해서 JPG로 채움
 IMAGE_PROVIDER = os.environ.get("IMAGE_PROVIDER", "openai").strip().lower()
 IMAGE_MODEL = os.environ.get("IMAGE_MODEL", "gpt-image-1").strip()
 IMAGE_SIZE = os.environ.get("IMAGE_SIZE", "1024x1024").strip()
@@ -102,7 +102,7 @@ def pick_category_for_item(title: str) -> str:
     cool_keys = [
         "iphone", "android", "chip", "ai", "gadget", "phone", "laptop", "app", "tool",
         "review", "camera", "tesla", "meta", "openai", "google", "samsung", "qualcomm",
-        "nvidia", "amd", "intel"
+        "nvidia", "amd", "intel",
     ]
     guide_keys = ["how to", "guide", "tips", "checklist", "best way", "steps", "beginner"]
     if any(k in t for k in guide_keys):
@@ -257,7 +257,6 @@ def context_after_marker(body_html: str, marker: str, max_chars: int = 520) -> s
         return ""
 
     tail = body_html[idx + len(marker):]
-
     blocks = re.findall(
         r"(<h2[^>]*>.*?</h2>|<h3[^>]*>.*?</h3>|<p[^>]*>.*?</p>)",
         tail,
@@ -393,7 +392,6 @@ def ensure_images_text_matched(slug: str, keyword: str, category: str, body_html
 
         got = False
 
-        # 1) 무료 이미지: 여러 쿼리로 끝까지 시도
         for q in queries:
             try:
                 urls = wikimedia_image_urls(q, limit=18)
@@ -416,7 +414,6 @@ def ensure_images_text_matched(slug: str, keyword: str, category: str, body_html
             except Exception:
                 continue
 
-        # 2) 무료가 실패하면 AI로 무조건 생성
         if not got and IMAGE_PROVIDER == "openai":
             generate_image_openai(ctx or f"{keyword} premium photorealistic blog photo", jpg_path)
             if not is_image_ok(jpg_path):
@@ -438,16 +435,13 @@ def ensure_images_text_matched(slug: str, keyword: str, category: str, body_html
 def sanitize_body_html(body_html: str) -> str:
     s = (body_html or "").strip()
 
-    # 혹시 GPT가 코드펜스 붙이면 제거
     if s.startswith("```"):
         s = re.sub(r"^```[a-zA-Z]*\s*", "", s)
         s = re.sub(r"\s*```$", "", s).strip()
 
-    # 혹시 GPT가 wrapper 넣으면 제거
     s = re.sub(r"^\s*<div\s+class=[\"']prose[\"']\s*>\s*", "", s, flags=re.IGNORECASE)
     s = re.sub(r"\s*</div>\s*$", "", s, flags=re.IGNORECASE)
 
-    # 혹시 html 태그를 통째로 넣으면 제거
     s = s.replace("<html>", "").replace("</html>", "")
     s = s.replace("<body>", "").replace("</body>", "")
     s = s.replace("<head>", "").replace("</head>", "")
@@ -456,7 +450,6 @@ def sanitize_body_html(body_html: str) -> str:
 
 
 def distribute_missing_markers(body_html: str) -> str:
-    # 중복 마커 제거
     for i in range(1, IMG_COUNT + 1):
         m = f"<!--IMG{i}-->"
         parts = body_html.split(m)
@@ -825,7 +818,6 @@ def create_post_from_item(item, existing_posts):
 
     (POSTS_DIR / f"{slug}.html").write_text(html_doc, encoding="utf-8")
 
-    # posts.json에는 항상 jpg 썸네일만 기록
     thumb = image_srcs[0].replace("../", "", 1) if image_srcs else f"assets/posts/{slug}/1.jpg"
 
     new_item = {
