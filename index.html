@@ -3,29 +3,20 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>MingMong | Global Trends & Cool Finds</title>
-  <meta name="description" content="Curated global trends, practical tools, and cool finds for people in their 20s and 30s across the US and Europe." />
-  <link rel="stylesheet" href="style.css?v=3" />
-  <!-- Google tag (gtag.js) -->
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-9PWEGHXHE7"></script>
-  <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-    gtag('js', new Date());
-    gtag('config', 'G-9PWEGHXHE7');
-  </script>
+  <title>MingMong</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 
-<body>
+<body class="page-bg">
 
 <header class="topbar">
   <div class="container topbar-inner">
     <a class="brand" href="index.html">
-      <span class="mark" aria-hidden="true"></span>
+      <span class="mark"></span>
       <span>MingMong</span>
     </a>
 
-    <nav class="nav" aria-label="Primary">
+    <nav class="nav">
       <a href="index.html">Home</a>
       <a href="about.html">About</a>
       <a href="contact.html">Contact</a>
@@ -35,266 +26,119 @@
 
 <main class="container">
 
-  <section class="hero">
-    <p class="breadcrumb">Global Lifestyle</p>
-    <h1 class="hero-title">
-      <span class="hero-light">Signal</span>
-      <span class="hero-strong">Over Noise</span>
-    </h1>
-    <p class="lead">
-      Curated trends, practical tools, and cool finds for young people across the US and Europe.
+  <!-- 🔥 FEATURED -->
+  <section style="margin:60px 0;">
+    <h2 style="font-size:32px;margin-bottom:6px;">Featured guide</h2>
+    <p style="color:#6b7280;margin-bottom:30px;">
+      One deep read to start strong.
     </p>
+
+    <div style="
+      display:flex;
+      gap:48px;
+      background:linear-gradient(135deg,#f8fbff,#eef3ff);
+      padding:48px;
+      border-radius:28px;
+      align-items:stretch;
+    ">
+
+      <!-- IMAGE -->
+      <div style="flex:2;min-height:420px;">
+        <img
+          src="assets/posts/top-invoicing-tools-for-freelancers-in-europe-to-boost-productivity/1.jpg"
+          alt=""
+          style="width:100%;height:100%;object-fit:cover;border-radius:18px;"
+        >
+      </div>
+
+      <!-- TEXT -->
+      <div style="flex:3;display:flex;flex-direction:column;justify-content:center;">
+
+        <span style="color:#4a6cf7;font-weight:600;margin-bottom:14px;">
+          Productivity
+        </span>
+
+        <h3 style="font-size:40px;line-height:1.2;margin-bottom:18px;">
+          Top Invoicing Tools for Freelancers in Europe to Boost Productivity
+        </h3>
+
+        <p style="font-size:18px;color:#6b7280;margin-bottom:28px;">
+          A practical guide to best invoicing tools for freelancers in Europe.
+          Clear steps, comparisons, pricing signals, and workflows you can copy.
+        </p>
+
+        <a href="posts/top-invoicing-tools-for-freelancers-in-europe-to-boost-productivity.html"
+           style="
+             display:inline-block;
+             padding:14px 32px;
+             background:#4a6cf7;
+             color:white;
+             border-radius:14px;
+             font-weight:600;
+           ">
+          Read the guide
+        </a>
+
+      </div>
+
+    </div>
   </section>
 
-  <section class="layout">
+  <!-- 🔥 LATEST -->
+  <section style="margin-bottom:80px;">
+    <h2 style="font-size:32px;margin-bottom:30px;">
+      Latest Articles
+    </h2>
 
-    <article class="card article">
-      <h2>Latest</h2>
-      <hr class="hr" />
-      <div id="latest-list" class="latest-grid"></div>
-    </article>
-
-    <aside class="sidebar">
-
-      <div class="card sidebox">
-        <h4>Categories</h4>
-
-        <div class="cat-list" role="list">
-          <a class="cat-item" role="listitem" href="category.html?cat=Trends%20%26%20News">
-            <span class="cat-icon" aria-hidden="true">📰</span>
-            <span class="cat-text">
-              <span class="cat-title">Trends & News</span>
-              <span class="cat-sub">Culture, work, travel, modern life</span>
-            </span>
-          </a>
-
-          <a class="cat-item" role="listitem" href="category.html?cat=Cool%20Finds">
-            <span class="cat-icon" aria-hidden="true">✨</span>
-            <span class="cat-text">
-              <span class="cat-title">Cool Finds</span>
-              <span class="cat-sub">Tools, gear, products worth using</span>
-            </span>
-          </a>
-
-          <a class="cat-item" role="listitem" href="category.html?cat=Guides">
-            <span class="cat-icon" aria-hidden="true">🧭</span>
-            <span class="cat-text">
-              <span class="cat-title">Guides</span>
-              <span class="cat-sub">How-to, checklists, practical steps</span>
-            </span>
-          </a>
-        </div>
-      </div>
-
-      <div class="card related">
-        <h4>Popular Topics</h4>
-        <div id="popular-topics"></div>
-      </div>
-
-      <div class="card related">
-        <h4>Hot now!</h4>
-        <div id="hot-now"></div>
-        <p class="tiny-note">Sorted by views from posts.json</p>
-      </div>
-
-    </aside>
-
+    <div id="latestPosts"
+         style="display:grid;grid-template-columns:repeat(3,1fr);gap:28px;">
+    </div>
   </section>
 
 </main>
 
-<footer class="footer">
-  <div class="container">
+<footer style="border-top:1px solid #e5e7eb;padding:30px 0;margin-top:60px;background:white;">
+  <div class="container" style="display:flex;justify-content:space-between;">
     <div>© 2026 MingMong</div>
-    <div class="footer-links">
-      <a href="privacy.html">Privacy</a>
-      <a href="about.html">About</a>
-      <a href="contact.html">Contact</a>
+    <div>
+      <a href="privacy.html" style="margin-left:18px;">Privacy</a>
+      <a href="about.html" style="margin-left:18px;">About</a>
+      <a href="contact.html" style="margin-left:18px;">Contact</a>
     </div>
   </div>
 </footer>
 
 <script>
-(function () {
-  const LS_KEY = "mm_popular_slugs_v1";
-  const LS_DAY_KEY = "mm_popular_day_v1";
+(async function () {
+  try {
+    const res = await fetch("posts.json", { cache: "no-store" });
+    const posts = await res.json();
 
-  function esc(s) {
-    return String(s || "")
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;");
-  }
+    posts.sort((a, b) => (b.date || "").localeCompare(a.date || ""));
 
-  function normalizeImgPath(pth) {
-    const s = String(pth || "");
-    if (!s) return "";
-    if (s.toLowerCase().endsWith(".svg")) return s.slice(0, -4) + ".jpg";
-    return s;
-  }
+    const latest = posts.slice(0, 6);
 
-  function thumbUrl(p) {
-    const raw = p.thumbnail || p.image || (p.slug ? `assets/posts/${p.slug}/1.jpg` : "");
-    return normalizeImgPath(raw);
-  }
+    const container = document.getElementById("latestPosts");
 
-  function postHref(p) {
-    if (p && p.url) return p.url;
-    if (p && p.slug) return `posts/${p.slug}.html`;
-    return "#";
-  }
-
-  // ✅ 홈 카드: 사진 위 → 제목 → 요약
-  function postCard(p) {
-    const href = postHref(p);
-    const t = thumbUrl(p);
-    const thumbStyle = t ? `style="background-image:url('${esc(t)}')"` : "";
-    const thumbClass = t ? "thumb has-img" : "thumb";
-
-    return `
-      <a class="post-card post-card--v" href="${href}">
-        <div class="${thumbClass}" ${thumbStyle} aria-hidden="true"></div>
-        <div class="post-body">
-          <div class="kicker">${esc(p.category || "Article")}</div>
-          <div class="post-title">${esc(p.title || "Untitled")}</div>
-          <p class="post-desc">${esc(p.description || "")}</p>
+    container.innerHTML = latest.map(p => `
+      <a href="posts/${p.slug}.html"
+         style="background:white;border-radius:18px;overflow:hidden;border:1px solid #e5e7eb;display:block;">
+        <img src="${p.thumbnail}"
+             style="width:100%;height:200px;object-fit:cover;">
+        <div style="padding:20px;">
+          <span style="font-size:13px;font-weight:600;color:#4a6cf7;">
+            ${p.category}
+          </span>
+          <h4 style="margin-top:8px;font-size:18px;line-height:1.4;">
+            ${p.title}
+          </h4>
         </div>
       </a>
-    `;
+    `).join("");
+
+  } catch (e) {
+    console.error(e);
   }
-
-  function todayKey() {
-    const d = new Date();
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
-    return `${y}-${m}-${day}`;
-  }
-
-  function sampleRandom(arr, n) {
-    const a = arr.slice();
-    for (let i = a.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      const tmp = a[i];
-      a[i] = a[j];
-      a[j] = tmp;
-    }
-    return a.slice(0, n);
-  }
-
-  function randomViews(min, max) {
-    const x = Math.floor(min + Math.random() * (max - min + 1));
-    return x;
-  }
-
-  function loadSavedPopularSlugs() {
-    try {
-      const day = localStorage.getItem(LS_DAY_KEY);
-      if (day !== todayKey()) return null;
-      const raw = localStorage.getItem(LS_KEY);
-      if (!raw) return null;
-      const slugs = JSON.parse(raw);
-      if (!Array.isArray(slugs)) return null;
-      return slugs.filter(Boolean);
-    } catch (e) {
-      return null;
-    }
-  }
-
-  function savePopularSlugs(slugs) {
-    try {
-      localStorage.setItem(LS_DAY_KEY, todayKey());
-      localStorage.setItem(LS_KEY, JSON.stringify(slugs));
-    } catch (e) {}
-  }
-
-  function renderPopularTitles(posts) {
-    const wrap = document.getElementById("popular-topics");
-    if (!wrap) return [];
-
-    const pool = posts.filter(p => p && p.slug);
-    if (pool.length === 0) {
-      wrap.innerHTML = `<div class="tiny-note">No posts yet</div>`;
-      return [];
-    }
-
-    const saved = loadSavedPopularSlugs();
-    let picked = [];
-
-    if (saved && saved.length) {
-      const bySlug = new Map(pool.map(p => [p.slug, p]));
-      picked = saved.map(s => bySlug.get(s)).filter(Boolean).slice(0, 3);
-    }
-
-    if (picked.length === 0) {
-      picked = sampleRandom(pool, 3);
-      savePopularSlugs(picked.map(p => p.slug));
-    }
-
-    wrap.innerHTML = picked.map(p => {
-      const href = postHref(p);
-      const title = esc(p.title || "Untitled");
-      return `<a class="hot-link" href="${href}"><span>${title}</span></a>`;
-    }).join("");
-
-    return picked.map(p => p.slug);
-  }
-
-  function renderHotNow(posts, excludeSlugs) {
-    const hotWrap = document.getElementById("hot-now");
-    if (!hotWrap) return;
-
-    const exclude = new Set(excludeSlugs || []);
-    const pool = posts.filter(p => p && p.slug && !exclude.has(p.slug));
-
-    if (pool.length === 0) {
-      hotWrap.innerHTML = `<div class="tiny-note">No posts yet</div>`;
-      return;
-    }
-
-    const sortedByViews = pool.slice().sort((a, b) => (Number(b.views) || 0) - (Number(a.views) || 0));
-    const maxViews = sortedByViews.reduce((m, p) => Math.max(m, Number(p.views) || 0), 0);
-
-    let hot = sortedByViews.slice(0, 5);
-
-    if (maxViews === 0) {
-      hot = pool
-        .slice()
-        .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")))
-        .slice(0, 5);
-    }
-
-    hotWrap.innerHTML = hot.map(p => {
-      const href = postHref(p);
-      const fake = randomViews(10000, 98000).toLocaleString();
-      return `<a class="hot-link" href="${href}"><span>${esc(p.title || "Untitled")}</span><span class="hot-views">${fake}</span></a>`;
-    }).join("");
-  }
-
-  async function main() {
-    let posts = [];
-    try {
-      const res = await fetch("posts.json", { cache: "no-store" });
-      posts = await res.json();
-      if (!Array.isArray(posts)) posts = [];
-    } catch (e) {
-      posts = [];
-    }
-
-    const latestWrap = document.getElementById("latest-list");
-    if (latestWrap) {
-      const latest = posts
-        .filter(p => p && p.slug)
-        .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
-      latestWrap.innerHTML = latest.map(postCard).join("");
-    }
-
-    const popularSlugs = renderPopularTitles(posts);
-    renderHotNow(posts, popularSlugs);
-  }
-
-  main();
 })();
 </script>
 
