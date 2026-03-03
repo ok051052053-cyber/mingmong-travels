@@ -109,6 +109,9 @@
 
 <script>
 (function () {
+  const LS_KEY = "mm_popular_slugs_v1";
+  const LS_DAY_KEY = "mm_popular_day_v1";
+
   function esc(s) {
     return String(s || "")
       .replace(/&/g, "&amp;")
@@ -121,6 +124,28 @@
     if (p && p.url) return p.url;
     if (p && p.slug) return `posts/${p.slug}.html`;
     return "#";
+  }
+
+  function todayKey() {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  }
+
+  function loadSavedPopularSlugs() {
+    try {
+      const day = localStorage.getItem(LS_DAY_KEY);
+      if (day !== todayKey()) return null;
+      const raw = localStorage.getItem(LS_KEY);
+      if (!raw) return null;
+      const slugs = JSON.parse(raw);
+      if (!Array.isArray(slugs)) return null;
+      return slugs.filter(Boolean);
+    } catch (e) {
+      return null;
+    }
   }
 
   function sampleRandom(arr, n) {
@@ -147,11 +172,22 @@
       posts = [];
     }
 
-    const picked = sampleRandom(posts.filter(p => p && p.slug), 3);
-
-    if (picked.length === 0) {
+    const pool = posts.filter(p => p && p.slug);
+    if (pool.length === 0) {
       wrap.innerHTML = `<div class="tiny-note">No posts yet</div>`;
       return;
+    }
+
+    const saved = loadSavedPopularSlugs();
+    let picked = [];
+
+    if (saved && saved.length) {
+      const bySlug = new Map(pool.map(p => [p.slug, p]));
+      picked = saved.map(s => bySlug.get(s)).filter(Boolean).slice(0, 3);
+    }
+
+    if (picked.length === 0) {
+      picked = sampleRandom(pool, 3);
     }
 
     wrap.innerHTML = picked.map(p => {
