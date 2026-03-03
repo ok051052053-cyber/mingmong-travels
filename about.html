@@ -74,38 +74,6 @@
         We only recommend products and services that we genuinely believe add value to our audience.
       </div>
 
-      <h2>Who We Serve</h2>
-      <p>
-        MingMong is built for modern young adults who care about freedom, mobility, and intentional living.
-      </p>
-
-      <p>Whether you are:</p>
-
-      <ul>
-        <li>a student planning your next step</li>
-        <li>a remote worker building a flexible lifestyle</li>
-        <li>a traveler exploring new places</li>
-        <li>or a creator building your own path</li>
-      </ul>
-
-      <p>this platform is designed to support your journey.</p>
-
-      <h2>Founder</h2>
-      <p>
-        MingMong is created by a Korea-based digital creator focused on global lifestyle trends, online business, travel experiences, and modern productivity tools.
-      </p>
-
-      <p>
-        The mission is simple:
-        to build a platform that helps people make better decisions, discover new opportunities, and design a life that fits them.
-      </p>
-
-      <h2>Partnerships</h2>
-      <p>
-        We work with brands, startups, and platforms that align with our audience’s lifestyle and values.
-        Every collaboration is selected carefully to ensure it delivers real usefulness and relevance.
-      </p>
-
       <h2>Let’s Connect</h2>
       <p>We are always open to feedback, ideas, and collaboration opportunities.</p>
 
@@ -119,7 +87,7 @@
 
       <div class="card related">
         <h4>Popular Topics</h4>
-        <div id="popular-topics" class="topic-list"></div>
+        <div id="popular-topics"></div>
       </div>
 
     </aside>
@@ -155,14 +123,6 @@
     return "#";
   }
 
-  function iconForCategory(cat) {
-    const c = String(cat || "").toLowerCase();
-    if (c.includes("trend")) return "📰";
-    if (c.includes("cool")) return "✨";
-    if (c.includes("guide")) return "🧭";
-    return "📌";
-  }
-
   function sampleRandom(arr, n) {
     const a = arr.slice();
     for (let i = a.length - 1; i > 0; i--) {
@@ -196,18 +156,8 @@
 
     wrap.innerHTML = picked.map(p => {
       const href = postHref(p);
-      const ico = iconForCategory(p.category);
       const title = esc(p.title || "Untitled");
-      const desc = esc(p.description || p.category || "Popular pick");
-      return `
-        <a class="topic-item" href="${href}">
-          <span class="topic-ico">${ico}</span>
-          <span class="topic-text">
-            <span class="topic-title">${title}</span>
-            <span class="topic-desc">${desc}</span>
-          </span>
-        </a>
-      `;
+      return `<a class="hot-link" href="${href}"><span>${title}</span></a>`;
     }).join("");
   }
 
