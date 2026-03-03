@@ -1,6 +1,63 @@
+// keywords.json  (put this file at repo root)
 [
-  {"keyword":"otter ai alternatives for zoom notes 2026","category":"AI Tools","region":"US","priority":5},
-  {"keyword":"how to sell notion templates in europe 2026","category":"Make Money Online","region":"EU","priority":5},
-  {"keyword":"toggl vs clockify vs harvest comparison 2026","category":"Productivity","region":"US","priority":4},
-  {"keyword":"zapier vs make com vs n8n comparison 2026","category":"Reviews","region":"EU","priority":4}
+  {"keyword":"otter ai alternatives for zoom meeting notes","category":"AI Tools","region":"US","priority":5},
+  {"keyword":"best ai meeting notes app for freelancers","category":"AI Tools","region":"EU","priority":5},
+  {"keyword":"fireflies ai vs otter ai pricing comparison","category":"Reviews","region":"GLOBAL","priority":5},
+  {"keyword":"best ai tools for small business email workflows","category":"AI Tools","region":"US","priority":5},
+  {"keyword":"best ai tools for small business invoicing automation","category":"AI Tools","region":"EU","priority":5},
+
+  {"keyword":"how to sell notion templates in europe step by step","category":"Make Money Online","region":"EU","priority":5},
+  {"keyword":"how to sell notion templates in the us step by step","category":"Make Money Online","region":"US","priority":5},
+  {"keyword":"gumroad vs lemon squeezy fees for digital products","category":"Reviews","region":"GLOBAL","priority":5},
+  {"keyword":"stripe vs paypal fees for digital downloads 2026","category":"Reviews","region":"GLOBAL","priority":5},
+  {"keyword":"how to price freelance copywriting in the us","category":"Make Money Online","region":"US","priority":5},
+  {"keyword":"how to price freelance design in germany","category":"Make Money Online","region":"EU","priority":5},
+  {"keyword":"best invoicing tools for freelancers in europe","category":"Productivity","region":"EU","priority":5},
+  {"keyword":"best invoicing tools for freelancers in the us","category":"Productivity","region":"US","priority":5},
+
+  {"keyword":"toggl vs clockify vs harvest comparison for freelancers","category":"Reviews","region":"GLOBAL","priority":5},
+  {"keyword":"best time tracking app for remote workers ios","category":"Productivity","region":"GLOBAL","priority":5},
+  {"keyword":"best calendar app for time blocking on iphone","category":"Productivity","region":"US","priority":4},
+  {"keyword":"best calendar app for time blocking in europe","category":"Productivity","region":"EU","priority":4},
+  {"keyword":"notion weekly review template checklist","category":"Productivity","region":"GLOBAL","priority":4},
+  {"keyword":"obsidian vs notion for knowledge management","category":"Reviews","region":"GLOBAL","priority":4},
+  {"keyword":"best pomodoro app for adhd adults","category":"Productivity","region":"GLOBAL","priority":4},
+
+  {"keyword":"zapier vs make vs n8n which automation tool to choose","category":"Reviews","region":"GLOBAL","priority":5},
+  {"keyword":"best zapier alternatives for small business automation","category":"AI Tools","region":"GLOBAL","priority":4},
+  {"keyword":"how to automate google sheets reports with no code","category":"Productivity","region":"GLOBAL","priority":4},
+  {"keyword":"best ai pdf summarizer for research papers","category":"AI Tools","region":"GLOBAL","priority":4},
+  {"keyword":"best ai tools for notion users workflows","category":"AI Tools","region":"GLOBAL","priority":4},
+  {"keyword":"best ai tools for google docs workflow","category":"AI Tools","region":"GLOBAL","priority":4},
+  {"keyword":"claude vs chatgpt for writing long documents","category":"Reviews","region":"GLOBAL","priority":4},
+  {"keyword":"best ai resume builder for us job applications","category":"AI Tools","region":"US","priority":4},
+  {"keyword":"best ai resume builder for uk job applications","category":"AI Tools","region":"EU","priority":4},
+
+  {"keyword":"best email marketing tools for creators pricing comparison","category":"Reviews","region":"GLOBAL","priority":4},
+  {"keyword":"mailchimp vs convertkit vs beehiiv for newsletters","category":"Reviews","region":"GLOBAL","priority":4},
+  {"keyword":"best link in bio tools for creators","category":"AI Tools","region":"GLOBAL","priority":3},
+
+  {"keyword":"upwork vs fiverr for beginners what to choose","category":"Reviews","region":"GLOBAL","priority":4},
+  {"keyword":"how to write upwork proposals that convert for beginners","category":"Make Money Online","region":"GLOBAL","priority":4},
+  {"keyword":"beginner guide to freelancing contracts for europe","category":"Make Money Online","region":"EU","priority":4},
+  {"keyword":"beginner guide to freelancing contracts for the us","category":"Make Money Online","region":"US","priority":4},
+  {"keyword":"simple client onboarding checklist for freelancers","category":"Productivity","region":"GLOBAL","priority":4},
+
+  {"keyword":"best password manager for remote work 1password vs bitwarden","category":"Reviews","region":"GLOBAL","priority":4},
+  {"keyword":"best vpn for remote work in europe comparison","category":"Reviews","region":"EU","priority":3},
+  {"keyword":"best vpn for remote work in the us comparison","category":"Reviews","region":"US","priority":3},
+
+  {"keyword":"canva pro worth it for freelancers pricing and alternatives","category":"Reviews","region":"GLOBAL","priority":3},
+  {"keyword":"grammarly vs prowritingaid which is better for marketers","category":"Reviews","region":"GLOBAL","priority":3},
+  {"keyword":"best ai writing tools for marketers content briefs","category":"AI Tools","region":"GLOBAL","priority":3},
+  {"keyword":"best ai tools for social media content repurposing","category":"AI Tools","region":"GLOBAL","priority":3},
+
+  {"keyword":"webflow vs wordpress for seo landing pages","category":"Reviews","region":"GLOBAL","priority":3},
+  {"keyword":"best website builders for portfolio seo","category":"Productivity","region":"GLOBAL","priority":3},
+  {"keyword":"how to build a simple portfolio site with github pages","category":"Productivity","region":"GLOBAL","priority":3},
+
+  {"keyword":"best desk setup under 200 dollars for productivity","category":"Productivity","region":"US","priority":2},
+  {"keyword":"best desk setup under 200 euros for productivity","category":"Productivity","region":"EU","priority":2},
+  {"keyword":"best ergonomic mouse for small hands for office work","category":"Reviews","region":"GLOBAL","priority":2},
+  {"keyword":"best standing desk alternatives under 300","category":"Reviews","region":"GLOBAL","priority":2}
 ]
