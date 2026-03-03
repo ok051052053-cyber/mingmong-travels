@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Contact - MingMong</title>
-  <meta name="description" content="Contact MingMong for partnerships, collaborations, press, or general inquiries.">
+  <title>About - MingMong</title>
+  <meta name="description" content="About MingMong. A modern global lifestyle platform for people in their 20s and 30s exploring trends, tools, and everyday ideas.">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -27,11 +27,10 @@
 <main class="container">
 
   <section class="hero">
-    <p class="breadcrumb"><span>Contact</span></p>
-    <h1 class="h1">Let’s Work Together</h1>
+    <p class="breadcrumb"><span>About</span></p>
+    <h1 class="h1">A Smarter Way to Discover Modern Life</h1>
     <p class="lead">
-      MingMong is open to partnerships, collaborations, and thoughtful brand work.
-      If you have a proposal, a question, or a correction, email us and we will get back to you.
+      MingMong is a global lifestyle platform for people in their 20s and 30s who want to live with intention, explore new ideas, and make smarter everyday choices.
     </p>
   </section>
 
@@ -39,45 +38,47 @@
 
     <article class="card article">
 
-      <h2>General inquiries</h2>
+      <h2>Our Vision</h2>
       <p>
-        For questions about our content, updates, or corrections, please reach out by email.
-        If you are reporting an error, include the page link and what you believe should be corrected.
+        The world moves fast, and information is everywhere.
+        But not everything is useful.
+        MingMong exists to filter out the noise and highlight what truly matters in modern life.
       </p>
 
       <p>
-        📧 <strong>Email:</strong> ok051052053@gmail.com
+        We believe the future belongs to people who are curious, flexible, and intentional about how they live.
+        Our goal is to help you stay ahead without feeling overwhelmed.
       </p>
 
-      <h2>Partnerships, brand work, and collaborations</h2>
-      <p>
-        MingMong collaborates with brands and creators in lifestyle, travel, productivity, and digital tools.
-        We focus on work that brings real value to modern audiences in their 20s and 30s across the US and Europe.
-      </p>
-
-      <p>To help us respond faster, please include:</p>
-
+      <h2>What You’ll Find Here</h2>
       <ul>
-        <li>Brand or company name</li>
-        <li>What you want to collaborate on</li>
-        <li>Links to your website or product page</li>
-        <li>Timeline, deliverables, and budget range (if available)</li>
+        <li><strong>Trends & News</strong> — meaningful global trends shaping how we live, work, and travel</li>
+        <li><strong>Cool Finds</strong> — practical tools, gear, apps, and products that improve everyday life</li>
+        <li><strong>Lifestyle Insights</strong> — ideas for productivity, digital nomad life, and modern routines</li>
       </ul>
+
+      <h2>Our Philosophy</h2>
+      <p>
+        We focus on clarity, usefulness, and real-world value.
+        Every article is written to answer real questions, not just fill space.
+      </p>
+
+      <p>
+        Instead of overwhelming you with information,
+        we give you curated, actionable insights you can apply immediately.
+      </p>
 
       <div class="callout">
         <strong>Transparency:</strong>
-        Sponsored content and affiliate links are always disclosed.
-        We do not publish promotions that feel misleading or low value to readers.
+        Some pages may include affiliate links or sponsored content.
+        We only recommend products and services that we genuinely believe add value to our audience.
       </div>
 
-      <h2>Founder</h2>
-      <p>
-        <strong>Name:</strong> Lee Seung Joo<br>
-        <strong>Country:</strong> South Korea
-      </p>
+      <h2>Let’s Connect</h2>
+      <p>We are always open to feedback, ideas, and collaboration opportunities.</p>
 
       <p>
-        <strong>Typical response time:</strong> 24–72 hours on business days.
+        <a href="contact.html">Visit the contact page →</a>
       </p>
 
     </article>
@@ -108,6 +109,9 @@
 
 <script>
 (function () {
+  const LS_KEY = "mm_popular_slugs_v1";
+  const LS_DAY_KEY = "mm_popular_day_v1";
+
   function esc(s) {
     return String(s || "")
       .replace(/&/g, "&amp;")
@@ -120,6 +124,28 @@
     if (p && p.url) return p.url;
     if (p && p.slug) return `posts/${p.slug}.html`;
     return "#";
+  }
+
+  function todayKey() {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  }
+
+  function loadSavedPopularSlugs() {
+    try {
+      const day = localStorage.getItem(LS_DAY_KEY);
+      if (day !== todayKey()) return null;
+      const raw = localStorage.getItem(LS_KEY);
+      if (!raw) return null;
+      const slugs = JSON.parse(raw);
+      if (!Array.isArray(slugs)) return null;
+      return slugs.filter(Boolean);
+    } catch (e) {
+      return null;
+    }
   }
 
   function sampleRandom(arr, n) {
@@ -146,11 +172,22 @@
       posts = [];
     }
 
-    const picked = sampleRandom(posts.filter(p => p && p.slug), 3);
-
-    if (picked.length === 0) {
+    const pool = posts.filter(p => p && p.slug);
+    if (pool.length === 0) {
       wrap.innerHTML = `<div class="tiny-note">No posts yet</div>`;
       return;
+    }
+
+    const saved = loadSavedPopularSlugs();
+    let picked = [];
+
+    if (saved && saved.length) {
+      const bySlug = new Map(pool.map(p => [p.slug, p]));
+      picked = saved.map(s => bySlug.get(s)).filter(Boolean).slice(0, 3);
+    }
+
+    if (picked.length === 0) {
+      picked = sampleRandom(pool, 3);
     }
 
     wrap.innerHTML = picked.map(p => {
