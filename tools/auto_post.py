@@ -4,13 +4,11 @@ import json
 import time
 import html
 import random
-import urllib.parse
 import base64
 from datetime import datetime, timezone
 from pathlib import Path
 
 import requests
-import feedparser
 from slugify import slugify
 from openai import OpenAI
 
@@ -24,20 +22,19 @@ ASSETS_POSTS_DIR = ROOT / "assets" / "posts"
 POSTS_JSON = ROOT / "posts.json"
 
 SITE_NAME = os.environ.get("SITE_NAME", "MingMong").strip()
-POSTS_PER_RUN = int(os.environ.get("POSTS_PER_RUN", "5"))
+POSTS_PER_RUN = int(os.environ.get("POSTS_PER_RUN", "3"))
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "").strip()
 MODEL = os.environ.get("MODEL", "gpt-4o-mini").strip()
 
 IMG_COUNT = 6
 HTTP_TIMEOUT = 25
 
-# 이미지 정책
-# - 무료(Wikimedia) 먼저
-# - 실패하면 OpenAI로 무조건 생성해서 JPG로 채움
+# Images
+# - Try Wikimedia first
+# - If failed then generate with OpenAI and save as JPG
 IMAGE_PROVIDER = os.environ.get("IMAGE_PROVIDER", "openai").strip().lower()
 IMAGE_MODEL = os.environ.get("IMAGE_MODEL", "gpt-image-1").strip()
 IMAGE_SIZE = os.environ.get("IMAGE_SIZE", "1024x1024").strip()
-
 FORCE_REGEN_IMAGES = os.environ.get("FORCE_REGEN_IMAGES", "0").strip().lower() in ("1", "true", "yes", "y")
 
 if not OPENAI_API_KEY:
@@ -51,6 +48,30 @@ UA = {
     "Accept-Language": "en-US,en;q=0.9",
     "Referer": "https://www.google.com/",
 }
+
+
+# -----------------------------
+# High intent topic seeds
+# -----------------------------
+HIGH_INTENT_TOPICS = [
+    "best ai tools for young professionals",
+    "chatgpt vs claude comparison",
+    "best chrome extensions for productivity",
+    "how to make money with chatgpt",
+    "notion ai vs chatgpt",
+    "best ai meeting note tools",
+    "best time tracking apps for freelancers",
+    "best ai resume tools",
+    "best ai image generators comparison",
+    "best password managers for remote workers",
+]
+
+CATEGORY_MAP = [
+    ("AI Tools", ["ai tool", "ai tools", "image generator", "meeting note", "note tool", "assistant", "chatgpt", "claude", "notion ai"]),
+    ("Make Money", ["make money", "side hustle", "freelance", "freelancing", "remote job", "earn", "income", "client"]),
+    ("Productivity", ["productivity", "chrome extension", "time tracking", "workflow", "routine", "focus", "remote workers", "desk setup"]),
+    ("Reviews", ["review", "pricing", "alternatives", "vs", "comparison", "best", "top"]),
+]
 
 
 # -----------------------------
@@ -72,7 +93,9 @@ def ensure_dirs():
 def load_posts_json():
     if POSTS_JSON.exists():
         try:
-            return json.loads(POSTS_JSON.read_text(encoding="utf-8"))
+            data = json.loads(POSTS_JSON.read_text(encoding="utf-8"))
+            if isinstance(data, list):
+                return data
         except Exception:
             return []
     return []
@@ -87,78 +110,19 @@ def clean_title(t: str) -> str:
     return t[:140].strip()
 
 
-def title_with_number_or_year(title: str, category: str) -> str:
-    if re.search(r"\d", title):
-        return title
-    if "cool" in category.lower():
-        return f"{title} 2026 정리"
-    if "guide" in category.lower():
-        return f"{title} 2026 가이드"
-    return f"{title} 2026 핵심 요약"
+def make_meta_description(keyword: str, category: str) -> str:
+    s = f"{keyword}. Clear explanation, real pricing, comparisons, and a checklist you can use today."
+    if category:
+        s = f"{s} Category: {category}."
+    return s[:155]
 
 
-def pick_category_for_item(title: str) -> str:
-    t = (title or "").lower()
-    cool_keys = [
-        "iphone", "android", "chip", "ai", "gadget", "phone", "laptop", "app", "tool",
-        "review", "camera", "tesla", "meta", "openai", "google", "samsung", "qualcomm",
-        "nvidia", "amd", "intel",
-    ]
-    guide_keys = ["how to", "guide", "tips", "checklist", "best way", "steps", "beginner"]
-    if any(k in t for k in guide_keys):
-        return "Guides"
-    if any(k in t for k in cool_keys):
-        return "Cool Finds"
-    return "Trends & News"
-
-
-def make_meta_description(keyword: str) -> str:
-    base = f"{keyword}를 한 번에 정리합니다. 핵심 요점과 실전 체크리스트까지 담았습니다."
-    return base[:155]
-
-
-def rss_url_for_query(q: str) -> str:
-    q = (q or "").strip()[:120]
-    qp = urllib.parse.quote(q)
-    return f"https://news.google.com/rss/search?q={qp}&hl=en-US&gl=US&ceid=US:en"
-
-
-def fetch_rss_items():
-    queries = [
-        "backlash controversy trending",
-        "lawsuit investigation recall",
-        "data breach leak security",
-        "new AI tool launch 2026",
-        "smartphone camera leak 2026",
-        "beginner guide checklist tips",
-    ]
-    items = []
-    for q in queries:
-        url = rss_url_for_query(q)
-        feed = feedparser.parse(url)
-        for e in feed.entries[:12]:
-            title = clean_title(getattr(e, "title", ""))
-            link = getattr(e, "link", "")
-            source = ""
-            try:
-                source = e.source.title
-            except Exception:
-                source = ""
-            if title and link:
-                items.append({"title": title, "link": link, "source": source})
-        time.sleep(0.35)
-
-    seen = set()
-    uniq = []
-    for it in items:
-        k = it["title"].lower()
-        if k in seen:
-            continue
-        seen.add(k)
-        uniq.append(it)
-
-    random.shuffle(uniq)
-    return uniq
+def pick_category_for_topic(topic: str) -> str:
+    t = (topic or "").lower()
+    for cat, keys in CATEGORY_MAP:
+        if any(k in t for k in keys):
+            return cat
+    return "AI Tools"
 
 
 def choose_internal_links(existing_posts, current_slug, k=2):
@@ -169,6 +133,36 @@ def choose_internal_links(existing_posts, current_slug, k=2):
     for p in picks:
         out.append({"slug": p["slug"], "title": p.get("title", p["slug"])})
     return out
+
+
+def pick_topics(existing_posts, n):
+    used_titles = set()
+    for p in existing_posts:
+        tt = (p.get("title") or "").strip().lower()
+        if tt:
+            used_titles.add(tt)
+
+    pool = HIGH_INTENT_TOPICS[:]
+    random.shuffle(pool)
+
+    picked = []
+    for t in pool:
+        if len(picked) >= n:
+            break
+        if t.strip().lower() in used_titles:
+            continue
+        picked.append(t)
+
+    if len(picked) < n:
+        for i in range(1, 50):
+            if len(picked) >= n:
+                break
+            t = f"{random.choice(HIGH_INTENT_TOPICS)} {2026+i}"
+            if t.lower() in used_titles:
+                continue
+            picked.append(t)
+
+    return picked[:n]
 
 
 # -----------------------------
@@ -184,10 +178,6 @@ def download_file(url: str, out_path: Path):
 
 
 def wikimedia_image_urls(query: str, limit: int = 18):
-    """
-    Wikimedia Commons에서 JPG/PNG만 후보로 모음
-    SVG 금지
-    """
     q = (query or "").strip()
     if not q:
         return []
@@ -199,7 +189,7 @@ def wikimedia_image_urls(query: str, limit: int = 18):
         "generator": "search",
         "gsrsearch": q,
         "gsrlimit": limit,
-        "gsrnamespace": 6,
+        "gsrnamespace": 6,  # File:
         "gsrsort": "relevance",
         "prop": "imageinfo",
         "iiprop": "url|mime",
@@ -288,24 +278,14 @@ def build_image_search_queries(slug: str, keyword: str, category: str, ctx: str)
         queries.append(slug_q[:120])
 
     cat = (category or "").lower()
-    if "guide" in cat:
-        queries += [
-            "checklist notebook desk photo",
-            "hands typing on laptop photo",
-            "planning checklist photo",
-        ]
-    elif "cool" in cat:
-        queries += [
-            "modern tech gadget photo",
-            "smartphone on desk photo",
-            "ai technology concept photo",
-        ]
+    if "productivity" in cat:
+        queries += ["modern desk setup photo", "working on laptop photo", "clean minimal workspace photo"]
+    elif "make money" in cat:
+        queries += ["freelancer working photo", "online business laptop photo", "invoice spreadsheet photo"]
+    elif "reviews" in cat:
+        queries += ["software dashboard photo", "app interface photo", "laptop on desk photo"]
     else:
-        queries += [
-            "breaking news newsroom photo",
-            "city people lifestyle photo",
-            "technology headline photo",
-        ]
+        queries += ["ai technology concept photo", "modern tech gadget photo", "hands typing on laptop photo"]
 
     out = []
     seen = set()
@@ -362,11 +342,6 @@ Content to match
 
 
 def ensure_images_text_matched(slug: str, keyword: str, category: str, body_html_with_markers: str):
-    """
-    SVG 절대 금지
-    1) 무료 이미지 먼저 끝까지 시도
-    2) 안 되면 OpenAI로 무조건 생성
-    """
     folder = ASSETS_POSTS_DIR / slug
     folder.mkdir(parents=True, exist_ok=True)
 
@@ -488,21 +463,21 @@ def build_image_block(src: str, alt: str):
 
 
 # -----------------------------
-# Prompting (outline + body)
+# Prompting
 # -----------------------------
 def make_outline_prompt(keyword: str, title: str, category: str):
     return f"""
-너는 프리미엄 블로그 {SITE_NAME}의 에디터야.
+You write for a premium niche blog called {SITE_NAME}.
+Audience: US and EU young professionals (20s-30s).
+Language: English only.
 
-키워드: {keyword}
-카테고리: {category}
-최종 제목: {title}
+Keyword: {keyword}
+Category: {category}
+Final title: {title}
 
-할 일
-주제에 맞는 고유한 아웃라인을 만들어.
-반드시 JSON만 반환해.
-스키마는 아래와 같아.
-
+Task
+Create a UNIQUE outline.
+Return ONLY valid JSON with schema:
 {{
   "h2": [
     {{
@@ -517,12 +492,12 @@ def make_outline_prompt(keyword: str, title: str, category: str):
   ]
 }}
 
-규칙
-- H2는 6~8개
-- 각 H2는 H3 1~3개
-- FAQ는 4~6개
-- 마크다운 금지
-- 코드펜스 금지
+Rules
+- 7 to 9 H2
+- Each H2 has 1 to 3 H3
+- FAQ has 4 to 6 Q&A
+- No markdown
+- No code fences
 """.strip()
 
 
@@ -532,42 +507,40 @@ def make_body_prompt(keyword: str, title: str, category: str, internal_links, ou
         a = internal_links[0]
         b = internal_links[1]
         link_hints = f"""
-내부링크를 자연스럽게 꼭 넣어.
-정확히 아래 태그를 그대로 사용해.
-
+Internal links you MUST insert naturally using exact tags:
 - <a href="{a['slug']}.html">{a['title']}</a>
 - <a href="{b['slug']}.html">{b['title']}</a>
 """.strip()
 
     return f"""
-너는 프리미엄 블로그 {SITE_NAME}의 에디터야.
+You write for a premium niche blog called {SITE_NAME}.
+Audience: US and EU young professionals (20s-30s).
+Language: English only.
 
-키워드: {keyword}
-카테고리: {category}
-최종 제목: {title}
+Keyword: {keyword}
+Category: {category}
+Final title: {title}
 
-아웃라인 JSON
+Use this outline JSON:
 {outline_json}
 
-필수 조건
-- 출력은 <div class="prose"> 안에 들어갈 HTML만
-- <html> <head> <body> 금지
-- 태그는 <h2> <h3> <p> <ul> <li> <hr> <strong> <a> 만 사용
-- 첫 문단에 키워드 "{keyword}"를 정확히 1번 포함
-- 아래 섹션을 반드시 포함
-  1) 바로 써먹는 팁
-  2) 실전 체크리스트
-  3) FAQ (제공된 Q&A 기반)
-- 뉴스 요약처럼 쓰지 말고 해설형으로 써
-- 원문 문장을 그대로 베끼지 말고 완전한 재작성
-- 마크다운 금지
-- 코드펜스 금지
-- <div class="prose"> 래퍼는 쓰지 마
+Hard requirements
+- Output ONLY valid HTML for inside <div class="prose">
+- Do not output <div class="prose"> wrapper
+- No <html> <head> <body>
+- Use only: <h2> <h3> <p> <ul> <li> <hr> <strong> <a> <table> <thead> <tbody> <tr> <th> <td>
+- First paragraph includes the exact keyword once: "{keyword}"
+- Must include sections:
+  1) Real pricing and what to watch for
+  2) Practical tips
+  3) Quick checklist
+  4) FAQ section using the provided Q&A
+- Include at least 1 comparison table
+- Do not copy from sources
+- No markdown fences
 
-이미지 마커
-- 각 마커는 정확히 1번씩만 삽입
-- 문단 사이에 자연스럽게 분산
-마커 목록
+Image placement markers
+Insert each marker exactly once and spread across the article:
 <!--IMG1-->
 <!--IMG2-->
 <!--IMG3-->
@@ -577,11 +550,8 @@ def make_body_prompt(keyword: str, title: str, category: str, internal_links, ou
 
 {link_hints}
 
-분량
-- 한국어 기준 최소 1200자
-- 최대 2600자
-
-지금 작성해.
+Length
+- 1400 to 2200 words
 """.strip()
 
 
@@ -594,7 +564,6 @@ def build_post_html(
     title,
     category,
     description,
-    source_link,
     internal_links,
     body_html,
     image_srcs,
@@ -607,36 +576,30 @@ def build_post_html(
     for idx in range(IMG_COUNT):
         marker = f"<!--IMG{idx+1}-->"
         if marker in body_html:
-            body_html = body_html.replace(
-                marker,
-                build_image_block(image_srcs[idx], f"{keyword} image {idx+1}"),
-            )
+            body_html = body_html.replace(marker, build_image_block(image_srcs[idx], f"{keyword} image {idx+1}"))
 
     inline_links_html = ""
-    if len(internal_links) >= 2:
-        a = internal_links[0]
-        b = internal_links[1]
-        inline_links_html = f"""
-<hr class="hr" />
-<p><strong>{safe_text(SITE_NAME)}에서 더 보기</strong></p>
-<p>
-  <a href="{safe_text(a['slug'])}.html">{safe_text(a['title'])}</a>
-  <br />
-  <a href="{safe_text(b['slug'])}.html">{safe_text(b['title'])}</a>
-</p>
-""".strip()
-
     more_links = ""
     if len(internal_links) >= 2:
         a = internal_links[0]
         b = internal_links[1]
+
+        inline_links_html = f"""
+<hr class="hr" />
+<p><strong>Related on {safe_text(SITE_NAME)}:</strong></p>
+<p>
+  <a href="{safe_text(a['slug'])}.html">{safe_text(a['title'])}</a><br />
+  <a href="{safe_text(b['slug'])}.html">{safe_text(b['title'])}</a>
+</p>
+""".strip()
+
         more_links = f"""
-<a href="{safe_text(a['slug'])}.html"><span>{safe_text(a['title'])}</span><small>More</small></a>
-<a href="{safe_text(b['slug'])}.html"><span>{safe_text(b['title'])}</span><small>More</small></a>
+<a href="{safe_text(a['slug'])}.html"><span>{safe_text(a['title'])}</span><small>Guide</small></a>
+<a href="{safe_text(b['slug'])}.html"><span>{safe_text(b['title'])}</span><small>Guide</small></a>
 """.strip()
 
     html_doc = f"""<!DOCTYPE html>
-<html lang="ko">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -669,15 +632,15 @@ def build_post_html(
     <h1 class="post-title-xl">{safe_text(title)}</h1>
 
     <p class="post-lead">
-      {safe_text(keyword)}를 이해하기 쉽게 정리했어.
+      {safe_text(keyword)} explained with real-world decisions, not fluff.
     </p>
 
     <div class="post-meta">
-      <span class="badge">📰 {safe_text(category)}</span>
+      <span class="badge">🧠 {safe_text(category)}</span>
       <span>•</span>
       <span>Updated: {today}</span>
       <span>•</span>
-      <span>Read time: 6–10 min</span>
+      <span>Read time: 8–14 min</span>
     </div>
   </section>
 
@@ -687,26 +650,16 @@ def build_post_html(
       <div class="prose">
         {body_html}
         {inline_links_html}
-        <p style="margin-top:14px;">
-          참고 링크: <a href="{safe_text(source_link)}" rel="nofollow noopener" target="_blank">원문 보기</a>
-        </p>
       </div>
     </article>
 
     <aside class="sidebar">
-
-      <div class="card related hotnews">
-        <h4>Hot News!</h4>
-        <div class="side-links" id="hotNewsList"></div>
-      </div>
-
       <div class="card related">
         <h4>More to read</h4>
         <div class="side-links">
           {more_links or '<a href="../index.html"><span>Browse latest posts</span><small>Home</small></a>'}
         </div>
       </div>
-
     </aside>
 
   </section>
@@ -723,36 +676,6 @@ def build_post_html(
   </div>
 </footer>
 
-<script>
-(async function () {{
-  try {{
-    const res = await fetch("../posts.json", {{ cache: "no-store" }});
-    const posts = await res.json();
-    posts.sort((a, b) => (b.date || "").localeCompare(a.date || ""));
-
-    const hot = [...posts]
-      .filter(p => (p.views || 0) > 0)
-      .sort((a, b) => (b.views || 0) - (a.views || 0))
-      .slice(0, 5);
-
-    const el = document.getElementById("hotNewsList");
-    if (!el) return;
-
-    el.innerHTML = hot.map((p, idx) => {{
-      const t = p.title || "Untitled";
-      const tag = (p.category || "News").split("&")[0].trim();
-      const url = `${{p.slug}}.html`;
-      return `
-        <a href="${{url}}">
-          <span>${{t}}</span>
-          <small>${{idx === 0 ? "Hot" : tag}}</small>
-        </a>
-      `;
-    }}).join("");
-  }} catch (e) {{}}
-}})();
-</script>
-
 </body>
 </html>
 """
@@ -762,18 +685,42 @@ def build_post_html(
 # -----------------------------
 # Create post
 # -----------------------------
-def create_post_from_item(item, existing_posts):
-    raw_title = clean_title(item["title"])
-    category = pick_category_for_item(raw_title)
-    title = title_with_number_or_year(raw_title, category)
+def create_post_from_topic(topic: str, existing_posts):
+    topic = (topic or "").strip()
+    if not topic:
+        raise RuntimeError("Empty topic")
 
-    keyword = raw_title
+    category = pick_category_for_topic(topic)
+
+    title_prompt = f"""
+Create one SEO friendly blog post title.
+Audience: US and EU young professionals (20s-30s).
+Language: English only.
+Topic: {topic}
+Category: {category}
+Rules:
+- No quotes
+- 55 to 75 characters if possible
+- Include a year only if it helps
+Return only the title text.
+""".strip()
+
+    title_res = client.chat.completions.create(
+        model=MODEL,
+        messages=[{"role": "user", "content": title_prompt}],
+        temperature=0.6,
+        max_tokens=80,
+    )
+    title = clean_title((title_res.choices[0].message.content or "").strip())
+    if not title:
+        title = clean_title(topic)
+
+    keyword = title
     if len(keyword) > 90:
         keyword = keyword[:90].rsplit(" ", 1)[0].strip()
 
     slug = slugify(title, lowercase=True)
-    slug = re.sub(r"-{2,}", "-", slug).strip("-")
-    slug = slug[:120].strip("-")
+    slug = re.sub(r"-{2,}", "-", slug).strip("-")[:120].strip("-")
 
     used = {p.get("slug") for p in existing_posts}
     if slug in used:
@@ -789,7 +736,6 @@ def create_post_from_item(item, existing_posts):
         max_tokens=1400,
     )
     outline_json = (outline_res.choices[0].message.content or "").strip()
-
     if outline_json.startswith("```"):
         outline_json = re.sub(r"^```[a-zA-Z]*\s*", "", outline_json)
         outline_json = re.sub(r"\s*```$", "", outline_json).strip()
@@ -799,19 +745,17 @@ def create_post_from_item(item, existing_posts):
         model=MODEL,
         messages=[{"role": "user", "content": body_prompt}],
         temperature=0.7,
-        max_tokens=5200,
+        max_tokens=6500,
     )
-    body_html = (res.choices[0].message.content or "").strip()
-    body_html = sanitize_body_html(body_html)
+    body_html = sanitize_body_html((res.choices[0].message.content or "").strip())
 
     if not re.search(r"<!--IMG[1-6]-->", body_html):
         body_html = body_html + "\n" + "\n".join([f"<!--IMG{i}-->" for i in range(1, IMG_COUNT + 1)]) + "\n"
-
     body_html = distribute_missing_markers(body_html)
 
     image_srcs = ensure_images_text_matched(slug, keyword, category, body_html)
 
-    description = make_meta_description(keyword)
+    description = make_meta_description(keyword, category)
 
     html_doc = build_post_html(
         slug=slug,
@@ -819,7 +763,6 @@ def create_post_from_item(item, existing_posts):
         title=title,
         category=category,
         description=description,
-        source_link=item["link"],
         internal_links=internal_links,
         body_html=body_html,
         image_srcs=image_srcs,
@@ -845,20 +788,23 @@ def main():
     ensure_dirs()
     existing = load_posts_json()
 
-    items = fetch_rss_items()
-    if not items:
-        raise SystemExit("No RSS items fetched")
+    topics = pick_topics(existing, POSTS_PER_RUN)
+    if not topics:
+        raise SystemExit("No topics available")
 
     created = 0
     new_posts = []
 
-    for it in items:
+    for t in topics:
+        try:
+            new_item = create_post_from_topic(t, existing + new_posts)
+            new_posts.append(new_item)
+            created += 1
+            print("CREATED:", new_item["slug"])
+        except Exception as e:
+            print("SKIP topic:", t, "reason:", str(e))
         if created >= POSTS_PER_RUN:
             break
-        new_item = create_post_from_item(it, existing + new_posts)
-        new_posts.append(new_item)
-        created += 1
-        print("CREATED:", new_item["slug"])
 
     if not new_posts:
         raise SystemExit("No posts created")
