@@ -482,3 +482,26 @@ a:hover{text-decoration:underline}
 .topic-item:hover .topic-desc{
   color:rgba(255,255,255,.9);
 }
+
+/* ===== Hero Title Upgrade ===== */
+
+.hero-title{
+  font-size: clamp(40px, 5vw, 72px);
+  line-height: 1.05;
+  letter-spacing: -0.04em;
+  margin: 0 0 16px;
+  font-weight: 900;
+}
+
+.hero-light{
+  display:block;
+  color:#94a3b8;
+  font-weight:700;
+}
+
+.hero-strong{
+  display:block;
+  background: linear-gradient(90deg,#2563eb,#06b6d4);
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+}
