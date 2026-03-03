@@ -390,7 +390,7 @@ a:hover{text-decoration:underline}
   padding:12px 14px;
   background:rgba(37,99,235,.06);
   border-radius:12px;
-  margin:16px 0;
+  margin:16px 12px;
   color:var(--ink);
 }
 .grid-2{
@@ -526,4 +526,5 @@ a:hover{text-decoration:underline}
 .topic-item:hover .topic-desc{
   color:rgba(255,255,255,.9);
 }
+
 
