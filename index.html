@@ -100,8 +100,14 @@
 
 <script>
 (async function () {
-  const res = await fetch("posts.json", { cache: "no-store" });
-  const posts = await res.json();
+  let posts = [];
+  try{
+    const res = await fetch("posts.json", { cache: "no-store" });
+    posts = await res.json();
+    if(!Array.isArray(posts)) posts = [];
+  }catch(e){
+    posts = [];
+  }
 
   const latestWrap = document.getElementById("latest-list");
   const hotWrap = document.getElementById("hot-now");
@@ -122,12 +128,18 @@
   }
 
   function thumbUrl(p) {
-    const raw = p.thumbnail || p.image || `assets/posts/${p.slug}/1.jpg`;
+    const raw = p.thumbnail || p.image || (p.slug ? `assets/posts/${p.slug}/1.jpg` : "");
     return normalizeImgPath(raw);
   }
 
+  function postHref(p){
+    if(p && p.url) return p.url;
+    if(p && p.slug) return `posts/${p.slug}.html`;
+    return "#";
+  }
+
   function postCard(p) {
-    const href = `posts/${p.slug}.html`;
+    const href = postHref(p);
     const t = thumbUrl(p);
     const thumbStyle = t ? `style="background-image:url('${esc(t)}')"` : "";
     const thumbClass = t ? "thumb has-img" : "thumb";
@@ -137,25 +149,39 @@
         <div class="${thumbClass}" ${thumbStyle} aria-hidden="true"></div>
         <div>
           <div class="kicker">${esc(p.category || "Article")}</div>
-          <div class="post-title">${esc(p.title)}</div>
+          <div class="post-title">${esc(p.title || "Untitled")}</div>
           <p class="post-desc">${esc(p.description || "")}</p>
         </div>
       </a>
     `;
   }
 
-  const latest = [...posts].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
-  latestWrap.innerHTML = latest.map(postCard).join("");
+  if(latestWrap){
+    const latest = [...posts].sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
+    latestWrap.innerHTML = latest.map(postCard).join("");
+  }
 
-  const hot = [...posts]
-    .filter(p => (p.views || 0) > 0)
-    .sort((a, b) => (b.views || 0) - (a.views || 0));
+  if(hotWrap){
+    const sortedByViews = [...posts].sort((a,b) => (Number(b.views)||0) - (Number(a.views)||0));
+    const maxViews = sortedByViews.reduce((m,p) => Math.max(m, Number(p.views)||0), 0);
 
-  hotWrap.innerHTML = hot.slice(0, 5).map(p => {
-    const href = `posts/${p.slug}.html`;
-    const v = (p.views || 0).toLocaleString();
-    return `<a class="hot-link" href="${href}"><span>${esc(p.title)}</span><span class="hot-views">${v}</span></a>`;
-  }).join("");
+    let hot = sortedByViews.slice(0, 5);
+
+    if(maxViews === 0){
+      const latestFallback = [...posts].sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
+      hot = latestFallback.slice(0, 5);
+    }
+
+    if(hot.length === 0){
+      hotWrap.innerHTML = `<div class="tiny-note">No posts yet</div>`;
+    }else{
+      hotWrap.innerHTML = hot.map(p => {
+        const href = postHref(p);
+        const v = (Number(p.views)||0).toLocaleString();
+        return `<a class="hot-link" href="${href}"><span>${esc(p.title || "Untitled")}</span><span class="hot-views">${v}</span></a>`;
+      }).join("");
+    }
+  }
 })();
 </script>
 
