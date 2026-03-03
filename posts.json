@@ -94,5 +94,35 @@
     "thumbnail": "assets/posts/how-to-price-freelance-design-in-germany/1.jpg",
     "image": "assets/posts/how-to-price-freelance-design-in-germany/1.jpg",
     "url": "posts/how-to-price-freelance-design-in-germany.html"
+  },
+  {
+    "title": "Upwork vs Fiverr for Beginners: What to Choose",
+    "description": "A detailed comparison of Upwork and Fiverr for new freelancers, highlighting pros, cons, and essential tips for success.",
+    "category": "Make Money",
+    "date": "2026-03-03",
+    "slug": "upwork-vs-fiverr-for-beginners-what-to-choose",
+    "thumbnail": "assets/posts/upwork-vs-fiverr-for-beginners-what-to-choose/1.jpg",
+    "url": "posts/upwork-vs-fiverr-for-beginners-what-to-choose.html",
+    "keyword": "upwork vs fiverr for beginners what to choose"
+  },
+  {
+    "title": "Best Invoicing Tools for Freelancers in Europe",
+    "description": "Discover the top invoicing tools that can streamline your freelance business in Europe. Learn features, pricing, and benefits.",
+    "category": "Productivity",
+    "date": "2026-03-03",
+    "slug": "best-invoicing-tools-for-freelancers-in-europe",
+    "thumbnail": "assets/posts/best-invoicing-tools-for-freelancers-in-europe/1.jpg",
+    "url": "posts/best-invoicing-tools-for-freelancers-in-europe.html",
+    "keyword": "best invoicing tools for freelancers in europe"
+  },
+  {
+    "title": "Claude vs ChatGPT for Writing Long Documents",
+    "description": "A comprehensive comparison of Claude and ChatGPT for drafting long texts, highlighting their strengths and weaknesses.",
+    "category": "AI Tools",
+    "date": "2026-03-03",
+    "slug": "claude-vs-chatgpt-for-writing-long-documents",
+    "thumbnail": "assets/posts/claude-vs-chatgpt-for-writing-long-documents/1.jpg",
+    "url": "posts/claude-vs-chatgpt-for-writing-long-documents.html",
+    "keyword": "claude vs chatgpt for writing long documents"
   }
 ]
