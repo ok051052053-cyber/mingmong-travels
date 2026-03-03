@@ -18,6 +18,7 @@
 
 *{box-sizing:border-box}
 html,body{height:100%}
+
 body{
   margin:0;
   font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
@@ -25,6 +26,13 @@ body{
   background:var(--bg);
   line-height:1.7;
   -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+}
+
+/* ✅ 링크 긴 텍스트로 가로 터지는 것 방지 */
+a, p, div, span{
+  overflow-wrap:anywhere;
+  word-break:break-word;
 }
 
 a{color:var(--accent);text-decoration:none}
@@ -33,13 +41,20 @@ a:hover{text-decoration:underline}
 .container{
   max-width:var(--max);
   margin:0 auto;
-  padding:0 20px;
+  padding-left:calc(20px + env(safe-area-inset-left));
+  padding-right:calc(20px + env(safe-area-inset-right));
 }
 @media(min-width:680px){
-  .container{padding:0 28px;}
+  .container{
+    padding-left:calc(28px + env(safe-area-inset-left));
+    padding-right:calc(28px + env(safe-area-inset-right));
+  }
 }
 @media(min-width:980px){
-  .container{padding:0 32px;}
+  .container{
+    padding-left:calc(32px + env(safe-area-inset-left));
+    padding-right:calc(32px + env(safe-area-inset-right));
+  }
 }
 
 /* HEADER */
@@ -55,7 +70,8 @@ a:hover{text-decoration:underline}
   display:flex;
   justify-content:space-between;
   align-items:center;
-  padding:14px 0;
+  padding:16px 0;
+  gap:12px;
 }
 .brand{
   display:flex;
@@ -64,11 +80,11 @@ a:hover{text-decoration:underline}
   font-weight:900;
   letter-spacing:-.02em;
   color:var(--text);
-  padding-left:2px;
+  padding-left:6px; /* ✅ 아이콘이 벽에 붙는 느낌 제거 */
 }
 .mark{
-  width:34px;
-  height:34px;
+  width:36px;
+  height:36px;
   border-radius:10px;
   background:linear-gradient(135deg,var(--accent),var(--accent2));
 }
@@ -77,10 +93,11 @@ a:hover{text-decoration:underline}
   display:flex;
   gap:8px;
   flex-wrap:wrap;
+  justify-content:flex-end;
 }
 .nav a{
-  padding:9px 10px;
-  font-weight:700;
+  padding:10px 12px;
+  font-weight:800;
   font-size:14px;
   border-radius:10px;
   color:var(--text);
@@ -88,6 +105,11 @@ a:hover{text-decoration:underline}
 .nav a:hover{
   background:#f3f4f6;
   text-decoration:none;
+}
+
+/* ✅ 모바일에서 메뉴가 답답하면 조금 줄이기 */
+@media(max-width:420px){
+  .nav a{padding:8px 10px;font-size:13px}
 }
 
 /* BUTTON */
@@ -99,7 +121,7 @@ a:hover{text-decoration:underline}
   border-radius:12px;
   border:1px solid var(--border);
   background:var(--card);
-  font-weight:800;
+  font-weight:900;
   font-size:14px;
   cursor:pointer;
 }
@@ -112,17 +134,17 @@ a:hover{text-decoration:underline}
 .btn:hover{opacity:.95;text-decoration:none}
 
 /* HERO */
-.hero{padding:44px 0 18px}
+.hero{padding:48px 0 18px}
 .breadcrumb{
   color:var(--muted);
   font-size:13px;
   margin-bottom:12px;
 }
 .hero-title{
-  font-size:clamp(44px,7vw,92px);
+  font-size:clamp(46px,7vw,92px);
   line-height:1.02;
   letter-spacing:-.055em;
-  margin:0 0 16px;
+  margin:0 0 18px;
   font-weight:950;
 }
 .hero-light{
@@ -155,22 +177,19 @@ a:hover{text-decoration:underline}
 .home-h2{margin:0;font-size:20px}
 .home-sub{margin:6px 0 0;color:var(--muted);font-size:13px}
 
-/* ✅ MAIN LAYOUT */
+.muted-note{
+  margin:8px 0 0;
+  color:var(--muted);
+  font-size:13px;
+}
+
+/* GRID */
 .layout{
   display:grid;
   grid-template-columns:1fr;
-  gap:18px;
+  gap:20px;
   padding:18px 0 50px;
 }
-
-/* ✅ 강제로 모바일 1열 고정
-   혹시 브라우저가 이상하게 넓게 잡아도 이 규칙이 우선됨 */
-@media(max-width:959px){
-  .layout{grid-template-columns:1fr;}
-  .sidebar{width:100%;}
-}
-
-/* 데스크탑에서만 2열 */
 @media(min-width:960px){
   .layout{grid-template-columns:1fr 320px;}
 }
@@ -185,20 +204,8 @@ a:hover{text-decoration:underline}
 
 /* ARTICLE */
 .article{padding:20px}
-.article h2{margin:0;font-size:20px}
-.article-head{
-  display:flex;
-  align-items:flex-end;
-  justify-content:space-between;
-  gap:12px;
-  flex-wrap:wrap;
-}
-.article-sub{
-  margin:0;
-  color:var(--muted);
-  font-size:12px;
-  font-weight:700;
-}
+.article h2{margin:0 0 6px;font-size:20px}
+.article p{margin:10px 0}
 .hr{height:1px;background:var(--border);border:0;margin:18px 0}
 
 /* TOPIC GRID */
@@ -222,6 +229,7 @@ a:hover{text-decoration:underline}
   color:var(--text);
   font-weight:900;
   transition:background .16s ease, transform .16s ease, border-color .16s ease;
+  min-width:0;
 }
 .topic-item:hover{
   background:linear-gradient(135deg, var(--accent), var(--accent2));
@@ -243,7 +251,9 @@ a:hover{text-decoration:underline}
   font-size:18px;
   color:#111;
 }
-.topic-item:hover .topic-ico{background:rgba(255,255,255,.9)}
+.topic-item:hover .topic-ico{
+  background:rgba(255,255,255,.9);
+}
 .topic-text{
   display:flex;
   flex-direction:column;
@@ -261,19 +271,18 @@ a:hover{text-decoration:underline}
   font-size:12px;
   opacity:.9;
 }
-.topic-item:hover .topic-desc{color:rgba(255,255,255,.9)}
+.topic-item:hover .topic-desc{
+  color:rgba(255,255,255,.9);
+}
 
-/* ✅ Latest 그리드 */
+/* ✅ 홈 Latest 영역: 카드 그리드 */
 .latest-grid{
   display:grid;
-  grid-template-columns:1fr;
+  grid-template-columns: 1fr;
   gap:16px;
 }
-@media(min-width:640px){
-  .latest-grid{grid-template-columns:1fr 1fr;}
-}
-@media(min-width:1100px){
-  .latest-grid{grid-template-columns:1fr 1fr 1fr;}
+@media(min-width:780px){
+  .latest-grid{grid-template-columns: 1fr 1fr;}
 }
 
 /* POST CARD */
@@ -284,7 +293,7 @@ a:hover{text-decoration:underline}
   border-radius:14px;
   transition:transform .18s ease, background .18s ease;
   border:1px solid transparent;
-  color:var(--text);
+  min-width:0;
 }
 .post-card:hover{
   background:#f9fafb;
@@ -305,11 +314,11 @@ a:hover{text-decoration:underline}
 .kicker{
   font-size:12px;
   color:var(--accent);
-  font-weight:800;
+  font-weight:900;
   margin-bottom:4px;
 }
 .post-title{
-  font-weight:900;
+  font-weight:950;
   font-size:16px;
   margin-bottom:6px;
   color:var(--text);
@@ -319,6 +328,7 @@ a:hover{text-decoration:underline}
   font-size:13px;
   margin:0;
 }
+.post-body{min-width:0}
 
 /* vertical card for home */
 .post-card--v{
@@ -334,65 +344,84 @@ a:hover{text-decoration:underline}
 @media(max-width:420px){
   .post-card--v .thumb{height:160px;}
 }
-.post-body{min-width:0}
 
 /* SIDEBAR */
-.sidebar{
+.sidebar{display:flex;flex-direction:column;gap:14px}
+.sidebox, .related{padding:16px}
+.sidebox h4, .related h4{margin:0 0 12px;font-size:14px}
+
+/* ✅ Start here (예쁘게 카드형) */
+.start-grid{
   display:flex;
   flex-direction:column;
-  gap:14px;
+  gap:10px;
 }
-.sidebox,.related{padding:16px}
-.sidebox h4,.related h4{margin:0 0 10px;font-size:14px}
-
-/* ✅ Start here 링크가 모바일에서 뭉개지는 문제 해결
-   기본은 세로 스택 */
-.side-links a{
-  display:flex;
-  flex-direction:column;
-  align-items:flex-start;
-  gap:4px;
-  padding:12px 12px;
-  border-radius:12px;
-  border:1px solid var(--border);
-  color:var(--text);
-  font-weight:850;
-  margin-top:10px;
-}
-.side-links a:hover{
-  background:#f9fafb;
-  text-decoration:none;
-}
-.side-links a span{line-height:1.2}
-.side-links small{
-  color:var(--muted);
-  font-weight:750;
-}
-
-/* 데스크탑에서는 가로 배치로 복귀 */
-@media(min-width:960px){
-  .side-links a{
-    flex-direction:row;
-    align-items:center;
-    justify-content:space-between;
-    gap:10px;
-  }
-}
-
-/* Popular picks */
-#popular-picks{display:flex;flex-direction:column;gap:10px}
-.hot-link{
+.start-item{
   display:flex;
   align-items:center;
   justify-content:space-between;
+  gap:12px;
+  padding:12px 12px;
+  border-radius:14px;
+  border:1px solid var(--border);
+  background:#fff;
+  color:var(--text);
+  text-decoration:none;
+  font-weight:900;
+  min-width:0;
+}
+.start-item:hover{
+  background:#f9fafb;
+  text-decoration:none;
+}
+.start-left{
+  display:flex;
+  align-items:center;
   gap:10px;
+  min-width:0;
+}
+.start-ico{
+  width:34px;
+  height:34px;
+  border-radius:12px;
+  border:1px solid var(--border);
+  background:#f3f4f6;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 0 auto;
+}
+.start-name{
+  font-size:14px;
+  letter-spacing:-.01em;
+  min-width:0;
+}
+.start-desc{
+  color:var(--muted);
+  font-weight:800;
+  font-size:12px;
+  text-align:right;
+  flex:0 0 auto;
+}
+
+/* ✅ popular picks가 가로로 안 터지게 */
+#popular-picks{display:flex;flex-direction:column;gap:10px}
+.hot-link{
+  display:flex;
+  align-items:flex-start;
+  justify-content:flex-start;
   padding:12px;
   border-radius:12px;
   border:1px solid var(--border);
   color:var(--text);
-  font-weight:850;
+  font-weight:900;
   background:#fff;
   transition:background .16s ease, transform .16s ease;
+  min-width:0;
+}
+.hot-link span{
+  min-width:0;
+  white-space:normal;
 }
 .hot-link:hover{
   background:#f3f4f6;
@@ -412,8 +441,14 @@ a:hover{text-decoration:underline}
   color:var(--muted);
   font-size:14px;
 }
+.footer .container{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:12px;
+  flex-wrap:wrap;
+}
 .footer-links{
-  margin-top:10px;
   display:flex;
   gap:10px;
   flex-wrap:wrap;
