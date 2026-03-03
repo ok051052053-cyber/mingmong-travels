@@ -427,3 +427,41 @@ a:hover{text-decoration:underline}
   box-shadow:var(--shadow);
   margin:18px 0;
 }
+
+/* ---------------------------------
+   Mobile post page spacing fix
+   --------------------------------- */
+@media (max-width: 820px){
+  /* 상단 메뉴바처럼 좌우 여백 확보 */
+  .post-page.container{
+    padding-left: 20px !important;
+    padding-right: 20px !important;
+  }
+
+  /* post 카드(쉘)가 화면 끝에 붙지 않게 */
+  .post-shell{
+    width: 100% !important;
+    margin: 0 auto !important;
+  }
+
+  /* 제목, 본문, 메타 라인 모두 동일한 좌우 여백 유지 */
+  .post-header,
+  .post-content{
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  /* 이미지가 컨테이너 밖으로 튀는 경우 방지 */
+  .post-hero img,
+  .post-content img{
+    max-width: 100% !important;
+    height: auto !important;
+    display: block !important;
+  }
+
+  /* 긴 제목 줄바꿈 자연스럽게 */
+  .post-h1{
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+  }
+}
