@@ -1,489 +1,284 @@
-/* style.css */
-:root{
-  --bg:#ffffff;
-  --text:#0f172a;
-  --muted:#6b7280;
-  --border:#e5e7eb;
-  --card:#ffffff;
-  --shadow:0 12px 32px rgba(15,23,42,.08);
-  --accent:#2563eb;
-  --accent2:#06b6d4;
-  --max:1120px;
-  --radius:16px;
+<!-- index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MingMong | Smart Tools for Young Professionals</title>
+  <meta name="description" content="AI tools, productivity workflows, and practical ways to earn more. Clear guides for young professionals in the US and Europe." />
+  <link rel="stylesheet" href="style.css?v=5" />
 
-  --gradA: rgba(37,99,235,.14);
-  --gradB: rgba(6,182,212,.12);
-  --ink:#0f172a;
-}
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-9PWEGHXHE7"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-9PWEGHXHE7');
+  </script>
+</head>
 
-*{box-sizing:border-box}
-html,body{height:100%}
-body{
-  margin:0;
-  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
-  color:var(--text);
-  background:var(--bg);
-  line-height:1.7;
-  -webkit-font-smoothing:antialiased;
-}
+<body>
 
-a{color:var(--accent);text-decoration:none}
-a:hover{text-decoration:underline}
+<header class="topbar">
+  <div class="container topbar-inner">
+    <a class="brand" href="index.html" aria-label="MingMong Home">
+      <span class="mark" aria-hidden="true"></span>
+      <span>MingMong</span>
+    </a>
 
-.container{
-  max-width:var(--max);
-  margin:0 auto;
-  padding:0 20px;
-}
-@media(min-width:680px){
-  .container{padding:0 28px;}
-}
-@media(min-width:980px){
-  .container{padding:0 32px;}
-}
+    <nav class="nav" aria-label="Primary">
+      <a href="index.html" aria-current="page">Home</a>
+      <a href="about.html">About</a>
+      <a href="contact.html">Contact</a>
+    </nav>
+  </div>
+</header>
 
-/* HEADER */
-.topbar{
-  position:sticky;
-  top:0;
-  z-index:50;
-  background:rgba(255,255,255,.95);
-  backdrop-filter: blur(12px);
-  border-bottom:1px solid var(--border);
-}
-.topbar-inner{
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  padding:16px 0; /* ✅ 좌우는 container padding만 쓰게 해서 아이콘이 벽에 붙는 문제 방지 */
-}
-.brand{
-  display:flex;
-  align-items:center;
-  gap:10px;
-  font-weight:900;
-  letter-spacing:-.02em;
-  color:var(--text);
-  padding-left:2px; /* ✅ 아주 살짝 여백 */
-}
-.mark{
-  width:36px;
-  height:36px;
-  border-radius:10px;
-  background:linear-gradient(135deg,var(--accent),var(--accent2));
-}
+<main class="container">
 
-.nav{
-  display:flex;
-  gap:8px;
-  flex-wrap:wrap;
-}
-.nav a{
-  padding:10px 12px;
-  font-weight:700;
-  font-size:14px;
-  border-radius:10px;
-  color:var(--text);
-}
-.nav a:hover{
-  background:#f3f4f6;
-  text-decoration:none;
-}
+  <!-- HERO -->
+  <section class="hero">
+    <p class="breadcrumb">AI + Productivity + Real Income</p>
 
-/* BUTTON */
-.btn{
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  padding:10px 14px;
-  border-radius:12px;
-  border:1px solid var(--border);
-  background:var(--card);
-  font-weight:800;
-  font-size:14px;
-  cursor:pointer;
-}
-.btn.primary{
-  background:var(--accent);
-  color:#fff;
-  border:none;
-  box-shadow:0 10px 22px rgba(37,99,235,.25);
-}
-.btn:hover{opacity:.95;text-decoration:none}
+    <h1 class="hero-title">
+      <span class="hero-light">Smart Tools</span>
+      <span class="hero-strong">Better Work</span>
+    </h1>
 
-/* HERO */
-.hero{padding:48px 0 18px}
-.breadcrumb{
-  color:var(--muted);
-  font-size:13px;
-  margin-bottom:12px;
-}
-.hero-title{
-  font-size:clamp(52px,6vw,92px);
-  line-height:1.02;
-  letter-spacing:-.055em;
-  margin:0 0 18px;
-  font-weight:950;
-}
-.hero-light{
-  display:block;
-  color:#94a3b8;
-  font-weight:800;
-}
-.hero-strong{
-  display:block;
-  background:linear-gradient(90deg,#2563eb,#06b6d4);
-  -webkit-background-clip:text;
-  -webkit-text-fill-color:transparent;
-}
-.lead{
-  color:#64748b;
-  max-width:70ch;
-  font-size:18px;
-  margin:0;
-}
-.hero-cta{
-  display:flex;
-  gap:10px;
-  flex-wrap:wrap;
-  margin-top:16px;
-}
+    <p class="lead">
+      Practical guides for young professionals across the US and Europe.
+      Learn faster workflows.
+      Pick better tools.
+      Earn more with clear steps.
+    </p>
 
-/* HOME BLOCK */
-.home-block{padding:8px 0 8px}
-.home-block-head{margin:6px 0 12px}
-.home-h2{margin:0;font-size:20px}
-.home-sub{margin:6px 0 0;color:var(--muted);font-size:13px}
+    <div class="hero-cta">
+      <a class="btn primary" href="category.html?cat=AI%20Tools">Start with AI Tools</a>
+      <a class="btn" href="category.html?cat=Make%20Money">Explore Make Money</a>
+    </div>
+  </section>
 
-/* GRID */
-.layout{
-  display:grid;
-  grid-template-columns:1fr;
-  gap:20px;
-  padding:18px 0 50px;
-}
-@media(min-width:960px){
-  .layout{grid-template-columns:1fr 320px;}
-}
+  <!-- CATEGORY BLOCKS -->
+  <section class="home-block">
+    <div class="home-block-head">
+      <h2 class="home-h2">Browse by focus</h2>
+      <p class="home-sub">A clean niche structure for long term search traffic.</p>
+    </div>
 
-/* CARD */
-.card{
-  border:1px solid var(--border);
-  border-radius:var(--radius);
-  background:var(--card);
-  box-shadow:var(--shadow);
-}
+    <div class="topic-grid" role="list">
+      <a class="topic-item" role="listitem" href="category.html?cat=AI%20Tools">
+        <span class="topic-ico" aria-hidden="true">🤖</span>
+        <span class="topic-text">
+          <span class="topic-title">AI Tools</span>
+          <span class="topic-desc">ChatGPT, Claude, Notion AI, automation</span>
+        </span>
+      </a>
 
-/* ARTICLE */
-.article{padding:20px}
-.article h2{margin:0 0 6px;font-size:20px}
-.article p{margin:10px 0}
-.hr{height:1px;background:var(--border);border:0;margin:18px 0}
+      <a class="topic-item" role="listitem" href="category.html?cat=Make%20Money">
+        <span class="topic-ico" aria-hidden="true">💸</span>
+        <span class="topic-text">
+          <span class="topic-title">Make Money</span>
+          <span class="topic-desc">Side hustles, freelancing, remote income</span>
+        </span>
+      </a>
 
-/* TOPIC GRID */
-.topic-grid{
-  display:grid;
-  grid-template-columns:1fr;
-  gap:12px;
-}
-@media(min-width:780px){
-  .topic-grid{grid-template-columns:1fr 1fr;}
-}
-.topic-item{
-  display:flex;
-  align-items:center;
-  gap:12px;
-  padding:14px 14px;
-  border:1px solid var(--border);
-  border-radius:14px;
-  background:#f3f4f6;
-  text-decoration:none;
-  color:var(--text);
-  font-weight:900;
-  transition:background .16s ease, transform .16s ease, border-color .16s ease;
-}
-.topic-item:hover{
-  background:linear-gradient(135deg, var(--accent), var(--accent2));
-  color:#fff;
-  transform:translateY(-1px);
-  border-color:transparent;
-  text-decoration:none;
-}
-.topic-ico{
-  width:44px;
-  height:44px;
-  border-radius:14px;
-  background:rgba(255,255,255,.75);
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  border:1px solid var(--border);
-  flex:0 0 auto;
-  font-size:18px;
-  color:#111;
-}
-.topic-item:hover .topic-ico{
-  background:rgba(255,255,255,.9);
-}
-.topic-text{
-  display:flex;
-  flex-direction:column;
-  gap:4px;
-  min-width:0;
-}
-.topic-title{
-  font-weight:900;
-  line-height:1.2;
-  letter-spacing:-.01em;
-}
-.topic-desc{
-  color:var(--muted);
-  font-weight:700;
-  font-size:12px;
-  opacity:.9;
-}
-.topic-item:hover .topic-desc{
-  color:rgba(255,255,255,.9);
-}
+      <a class="topic-item" role="listitem" href="category.html?cat=Productivity">
+        <span class="topic-ico" aria-hidden="true">⚡</span>
+        <span class="topic-text">
+          <span class="topic-title">Productivity</span>
+          <span class="topic-desc">Workflows, extensions, systems, checklists</span>
+        </span>
+      </a>
 
-/* FEATURED */
-.featured{
-  display:grid;
-  grid-template-columns:1fr;
-  gap:14px;
-  border:1px solid var(--border);
-  border-radius:var(--radius);
-  background:
-    radial-gradient(900px 520px at 12% 10%, var(--gradA), transparent 60%),
-    radial-gradient(820px 520px at 85% 18%, var(--gradB), transparent 60%),
-    #fff;
-  box-shadow:var(--shadow);
-  overflow:hidden;
-  text-decoration:none;
-  color:var(--text);
-}
-@media(min-width:900px){
-  .featured{grid-template-columns: 1.1fr 1fr;}
-}
-.featured:hover{transform:translateY(-1px)}
-.featured-media{
-  min-height:220px;
-  background-size:cover;
-  background-position:center;
-  background-repeat:no-repeat;
-}
-.featured-body{
-  padding:16px 16px 18px;
-}
-.featured-title{
-  font-weight:950;
-  font-size:22px;
-  line-height:1.15;
-  letter-spacing:-.02em;
-  margin-top:6px;
-}
-.featured-desc{
-  color:var(--muted);
-  font-size:13px;
-  margin:10px 0 0;
-}
-.featured-cta{margin-top:14px}
+      <a class="topic-item" role="listitem" href="category.html?cat=Reviews">
+        <span class="topic-ico" aria-hidden="true">🧾</span>
+        <span class="topic-text">
+          <span class="topic-title">Reviews</span>
+          <span class="topic-desc">Pricing, comparisons, alternatives</span>
+        </span>
+      </a>
+    </div>
+  </section>
 
-/* ✅ 홈 Latest 영역: 카드 그리드 */
-.latest-grid{
-  display:grid;
-  grid-template-columns: 1fr;
-  gap:16px;
-}
-@media(min-width:780px){
-  .latest-grid{grid-template-columns: 1fr 1fr;}
-}
+  <!-- FEATURED -->
+  <section class="home-block">
+    <div class="home-block-head">
+      <h2 class="home-h2">Featured guide</h2>
+      <p class="home-sub">One deep read to start strong.</p>
+    </div>
 
-/* POST CARD */
-.post-card{
-  display:flex;
-  gap:14px;
-  padding:14px;
-  border-radius:14px;
-  transition:transform .18s ease, background .18s ease;
-  border:1px solid transparent;
-}
-.post-card:hover{
-  background:#f9fafb;
-  transform:translateY(-2px);
-  text-decoration:none;
-  border-color:#eef2f7;
-}
-.thumb{
-  width:110px;
-  height:80px;
-  border-radius:12px;
-  background:linear-gradient(135deg,#e0f2fe,#f0f9ff);
-  flex-shrink:0;
-  background-size:cover;
-  background-position:center;
-  background-repeat:no-repeat;
-}
-.kicker{
-  font-size:12px;
-  color:var(--accent);
-  font-weight:800;
-  margin-bottom:4px;
-}
-.post-title{
-  font-weight:900;
-  font-size:16px;
-  margin-bottom:6px;
-  color:var(--text);
-}
-.post-desc{
-  color:var(--muted);
-  font-size:13px;
-  margin:0;
-}
+    <div id="featured-wrap"></div>
+  </section>
 
-/* vertical card for home */
-.post-card--v{
-  flex-direction:column;
-  gap:12px;
-  padding:14px;
-}
-.post-card--v .thumb{
-  width:100%;
-  height:180px;
-  border-radius:14px;
-}
-@media(max-width:420px){
-  .post-card--v .thumb{height:160px;}
-}
-.post-body{min-width:0}
+  <!-- MAIN LAYOUT -->
+  <section class="layout">
 
-/* SIDEBAR */
-.sidebar{display:flex;flex-direction:column;gap:14px}
-.sidebox, .related{padding:16px}
-.sidebox h4, .related h4{margin:0 0 10px;font-size:14px}
+    <article class="card article">
+      <h2>Latest Articles</h2>
+      <hr class="hr" />
+      <div id="latest-list" class="latest-grid"></div>
+    </article>
 
-/* sidebar links */
-.side-links a{
-  display:flex;
-  justify-content:space-between;
-  gap:10px;
-  padding:12px 12px;
-  border-radius:12px;
-  border:1px solid var(--border);
-  color:var(--text);
-  font-weight:850;
-  margin-top:10px;
-}
-.side-links a:hover{
-  background:#f9fafb;
-  text-decoration:none;
-}
-.side-links small{
-  color:var(--muted);
-  font-weight:700;
-}
+    <aside class="sidebar">
 
-/* link list */
-#popular-picks{display:flex;flex-direction:column;gap:10px}
-.hot-link{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:10px;
-  padding:12px;
-  border-radius:12px;
-  border:1px solid var(--border);
-  color:var(--text);
-  font-weight:850;
-  background:#fff;
-  transition:background .16s ease, transform .16s ease;
-}
-.hot-link:hover{
-  background:#f3f4f6;
-  transform:translateY(-1px);
-  text-decoration:none;
-}
-.tiny-note{
-  margin:8px 0 0;
-  color:var(--muted);
-  font-size:12px;
-}
+      <div class="card sidebox">
+        <h4>Start here</h4>
+        <div class="side-links">
+          <a href="category.html?cat=AI%20Tools"><span>AI Tools</span><small>Tools that save time</small></a>
+          <a href="category.html?cat=Make%20Money"><span>Make Money</span><small>High intent guides</small></a>
+          <a href="category.html?cat=Productivity"><span>Productivity</span><small>Workflows that stick</small></a>
+          <a href="category.html?cat=Reviews"><span>Reviews</span><small>Pricing and alternatives</small></a>
+        </div>
+      </div>
 
-/* FOOTER */
-.footer{
-  border-top:1px solid var(--border);
-  padding:24px 0;
-  color:var(--muted);
-  font-size:14px;
-}
-.footer-links{
-  margin-top:10px;
-  display:flex;
-  gap:10px;
-  flex-wrap:wrap;
-}
-.footer-links a{
-  padding:8px 10px;
-  border-radius:10px;
-  border:1px solid var(--border);
-  color:var(--muted);
-}
-.footer-links a:hover{
-  background:#f9fafb;
-  color:var(--text);
-  text-decoration:none;
-}
+      <div class="card related">
+        <h4>Popular picks</h4>
+        <div id="popular-picks"></div>
+        <p class="tiny-note">Auto selected from your newest posts.</p>
+      </div>
 
-/* ===== Clean Browse List (mobile menu style) ===== */
-.menu-list{
-  display:flex;
-  flex-direction:column;
-  margin-top:8px;
-  border-top:1px solid var(--border);
-}
+    </aside>
 
-.menu-item{
-  display:flex;
-  align-items:center;
-  gap:12px;
-  padding:14px 6px;
-  border-bottom:1px solid var(--border);
-  color:var(--text);
-  font-weight:850;
-  text-decoration:none;
-}
+  </section>
 
-.menu-item:hover{
-  background:#f9fafb;
-  text-decoration:none;
-}
+</main>
 
-.menu-ico{
-  width:28px;
-  height:28px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  font-size:18px;
-  flex:0 0 28px;
-}
+<footer class="footer">
+  <div class="container">
+    <div>© 2026 MingMong</div>
+    <div class="footer-links">
+      <a href="privacy.html">Privacy</a>
+      <a href="about.html">About</a>
+      <a href="contact.html">Contact</a>
+    </div>
+  </div>
+</footer>
 
-.menu-text{
-  display:flex;
-  flex-direction:column;
-  gap:2px;
-  min-width:0;
-}
+<script>
+(function () {
+  function esc(s) {
+    return String(s || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
 
-.menu-title{
-  font-size:15px;
-  line-height:1.15;
-  letter-spacing:-.01em;
-}
+  function normalizeImgPath(pth) {
+    const s = String(pth || "");
+    if (!s) return "";
+    if (s.toLowerCase().endsWith(".svg")) return s.slice(0, -4) + ".jpg";
+    return s;
+  }
 
-.menu-sub{
-  font-size:12px;
-  color:var(--muted);
-  font-weight:750;
-}
+  function thumbUrl(p) {
+    const raw = p.thumbnail || p.image || (p.slug ? `assets/posts/${p.slug}/1.jpg` : "");
+    return normalizeImgPath(raw);
+  }
+
+  function postHref(p) {
+    if (p && p.url) return p.url;
+    if (p && p.slug) return `posts/${p.slug}.html`;
+    return "#";
+  }
+
+  function postCardVertical(p) {
+    const href = postHref(p);
+    const t = thumbUrl(p);
+    const thumbStyle = t ? `style="background-image:url('${esc(t)}')"` : "";
+    const thumbClass = t ? "thumb has-img" : "thumb";
+
+    return `
+      <a class="post-card post-card--v" href="${href}">
+        <div class="${thumbClass}" ${thumbStyle} aria-hidden="true"></div>
+        <div class="post-body">
+          <div class="kicker">${esc(p.category || "Article")}</div>
+          <div class="post-title">${esc(p.title || "Untitled")}</div>
+          <p class="post-desc">${esc(p.description || "")}</p>
+        </div>
+      </a>
+    `;
+  }
+
+  function featuredCard(p) {
+    const href = postHref(p);
+    const t = thumbUrl(p);
+    const thumbStyle = t ? `style="background-image:url('${esc(t)}')"` : "";
+    const thumbClass = t ? "thumb has-img" : "thumb";
+
+    return `
+      <a class="featured" href="${href}">
+        <div class="featured-media ${thumbClass}" ${thumbStyle} aria-hidden="true"></div>
+        <div class="featured-body">
+          <div class="kicker">${esc(p.category || "Guide")}</div>
+          <div class="featured-title">${esc(p.title || "Untitled")}</div>
+          <p class="featured-desc">${esc(p.description || "")}</p>
+          <div class="featured-cta">
+            <span class="btn primary">Read the guide</span>
+          </div>
+        </div>
+      </a>
+    `;
+  }
+
+  function pickFeatured(posts) {
+    const pool = posts.filter(p => p && p.slug);
+    const prefCats = ["Make Money", "Productivity", "AI Tools", "Reviews"];
+    for (const c of prefCats) {
+      const hit = pool.find(p => String(p.category || "") === c);
+      if (hit) return hit;
+    }
+    return pool[0] || null;
+  }
+
+  function renderPopularPicks(posts) {
+    const wrap = document.getElementById("popular-picks");
+    if (!wrap) return;
+
+    const pool = posts.filter(p => p && p.slug).slice(0, 6);
+    if (!pool.length) {
+      wrap.innerHTML = `<div class="tiny-note">No posts yet</div>`;
+      return;
+    }
+
+    wrap.innerHTML = pool.map(p => {
+      const href = postHref(p);
+      return `<a class="hot-link" href="${href}"><span>${esc(p.title || "Untitled")}</span></a>`;
+    }).join("");
+  }
+
+  async function main() {
+    let posts = [];
+    try {
+      const res = await fetch("posts.json", { cache: "no-store" });
+      posts = await res.json();
+      if (!Array.isArray(posts)) posts = [];
+    } catch (e) {
+      posts = [];
+    }
+
+    posts = posts
+      .filter(p => p && p.slug)
+      .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
+
+    const feat = pickFeatured(posts);
+    const featWrap = document.getElementById("featured-wrap");
+    if (featWrap) {
+      featWrap.innerHTML = feat ? featuredCard(feat) : `<div class="tiny-note">No posts yet</div>`;
+    }
+
+    const latestWrap = document.getElementById("latest-list");
+    if (latestWrap) {
+      latestWrap.innerHTML = posts.slice(0, 12).map(postCardVertical).join("");
+    }
+
+    renderPopularPicks(posts);
+  }
+
+  main();
+})();
+</script>
+
+</body>
+</html>
