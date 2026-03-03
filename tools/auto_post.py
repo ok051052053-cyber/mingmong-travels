@@ -1,3 +1,11 @@
+# auto_post.py
+# MingMong premium auto writer
+# - NO RSS
+# - English only
+# - keywords.json (50+) drives topics by category + region
+# - Images: Wikimedia first. If no related free image, use AI fallback (MAX 1 AI image per post)
+# - US/EU localized examples automatically
+
 import os
 import re
 import json
@@ -21,6 +29,8 @@ ROOT = Path(__file__).resolve().parents[1]
 POSTS_DIR = ROOT / "posts"
 ASSETS_POSTS_DIR = ROOT / "assets" / "posts"
 POSTS_JSON = ROOT / "posts.json"
+KEYWORDS_JSON = ROOT / "keywords.json"
+
 
 # -----------------------------
 # Site / OpenAI Config
@@ -37,7 +47,15 @@ HTTP_TIMEOUT = 25
 IMAGE_PROVIDER = os.environ.get("IMAGE_PROVIDER", "openai").strip().lower()
 IMAGE_MODEL = os.environ.get("IMAGE_MODEL", "gpt-image-1").strip()
 IMAGE_SIZE = os.environ.get("IMAGE_SIZE", "1024x1024").strip()
+
+# When true: regenerate images even if they exist
 FORCE_REGEN_IMAGES = os.environ.get("FORCE_REGEN_IMAGES", "0").strip().lower() in ("1", "true", "yes", "y")
+
+# Free-image budget
+WIKIMEDIA_LIMIT = int(os.environ.get("WIKIMEDIA_LIMIT", "18"))
+
+# Post-level AI image cap
+MAX_AI_IMAGES_PER_POST = int(os.environ.get("MAX_AI_IMAGES_PER_POST", "1"))
 
 if not OPENAI_API_KEY:
     raise SystemExit("OPENAI_API_KEY is missing")
@@ -51,39 +69,8 @@ UA = {
     "Referer": "https://www.google.com/",
 }
 
-# -----------------------------
-# High intent topics (NO RSS)
-# You can override from GitHub Secrets via env:
-# TOPICS_JSON='["topic 1","topic 2"]'
-# -----------------------------
-DEFAULT_TOPICS = [
-    "best ai tools for students 2026",
-    "how to make money with chatgpt",
-    "chatgpt vs claude comparison",
-    "best productivity apps for remote workers",
-    "notion ai vs chatgpt",
-    "best chrome extensions for developers",
-    "how to start freelancing in europe",
-    "best ai tools for small business 2026",
-    "best ai resume builder 2026",
-    "best invoicing tools for freelancers",
-    "upwork vs fiverr for beginners",
-    "best time tracking apps for freelancers",
-    "zapier vs make automation comparison",
-    "best email marketing tools for creators",
-    "best ai writing tools for marketers",
-]
+ALLOWED_TAGS_HINT = "<h2> <h3> <p> <ul> <li> <hr> <strong> <a> <table> <thead> <tbody> <tr> <th> <td>"
 
-def load_topics():
-    raw = os.environ.get("TOPICS_JSON", "").strip()
-    if raw:
-        try:
-            arr = json.loads(raw)
-            if isinstance(arr, list) and arr:
-                return [str(x).strip() for x in arr if str(x).strip()]
-        except Exception:
-            pass
-    return DEFAULT_TOPICS[:]
 
 # -----------------------------
 # Utils
@@ -91,12 +78,15 @@ def load_topics():
 def now_utc_date():
     return datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
+
 def safe_text(s: str) -> str:
     return html.escape(s or "", quote=True)
+
 
 def ensure_dirs():
     POSTS_DIR.mkdir(parents=True, exist_ok=True)
     ASSETS_POSTS_DIR.mkdir(parents=True, exist_ok=True)
+
 
 def load_posts_json():
     if POSTS_JSON.exists():
@@ -108,16 +98,28 @@ def load_posts_json():
             return []
     return []
 
+
 def save_posts_json(posts):
     POSTS_JSON.write_text(json.dumps(posts, indent=2, ensure_ascii=False), encoding="utf-8")
+
 
 def clean_title(t: str) -> str:
     t = re.sub(r"\s+", " ", (t or "").strip())
     return t[:140].strip()
 
-def make_meta_description(keyword: str) -> str:
-    s = f"A practical guide to {keyword}. Clear steps, comparisons, pricing signals, and real workflows you can copy."
+
+def normalize_key(s: str) -> str:
+    s = (s or "").lower().strip()
+    s = re.sub(r"\s+", " ", s)
+    return s
+
+
+def make_meta_description(keyword: str, region: str) -> str:
+    r = (region or "GLOBAL").upper()
+    region_hint = "US and Europe" if r == "GLOBAL" else ("US" if r == "US" else "Europe")
+    s = f"A practical guide to {keyword} for {region_hint}. Clear steps, comparisons, pricing signals, and workflows you can copy."
     return s[:155].strip()
+
 
 def choose_internal_links(existing_posts, current_slug, k=2):
     candidates = [p for p in existing_posts if p.get("slug") and p.get("slug") != current_slug]
@@ -128,52 +130,84 @@ def choose_internal_links(existing_posts, current_slug, k=2):
         out.append({"slug": p["slug"], "title": p.get("title", p["slug"])})
     return out
 
-def guess_category(keyword: str) -> str:
-    k = (keyword or "").lower()
-
-    # 1) Make Money Online
-    money_keys = [
-        "make money", "freelanc", "remote job", "side hustle", "upwork", "fiverr",
-        "invoice", "pricing for freelancers", "earn", "income", "client",
-    ]
-    if any(x in k for x in money_keys):
-        return "Make Money"
-
-    # 2) Reviews
-    review_keys = [
-        "vs", "comparison", "alternatives", "review", "pricing", "price", "cost",
-        "best ", "top ", "rank",
-    ]
-    if any(x in k for x in review_keys):
-        # if it's clearly productivity workflow, keep productivity
-        pass
-
-    # 3) Productivity
-    prod_keys = [
-        "productivity", "workflow", "checklist", "routine", "time tracking",
-        "chrome extension", "extensions", "automation", "zapier", "make.com",
-        "systems", "templates", "notion", "calendar",
-    ]
-    if any(x in k for x in prod_keys):
-        # Notion AI / automation can be both AI Tools and Productivity
-        if "ai" in k or "chatgpt" in k or "claude" in k:
-            return "AI Tools"
-        return "Productivity"
-
-    # 4) AI Tools default
-    ai_keys = ["ai", "chatgpt", "claude", "llm", "notion ai", "midjourney", "prompt"]
-    if any(x in k for x in ai_keys):
-        return "AI Tools"
-
-    # fallback
-    if any(x in k for x in review_keys):
-        return "Reviews"
-
-    return "Productivity"
 
 def make_search_reference_url(keyword: str) -> str:
     q = urllib.parse.quote((keyword or "").strip()[:160])
     return f"https://www.google.com/search?q={q}"
+
+
+# -----------------------------
+# keywords.json (NO RSS)
+# Format:
+# [
+#   {"keyword":"...", "category":"AI Tools|Make Money Online|Productivity|Reviews", "region":"US|EU|GLOBAL", "priority": 1-5}
+# ]
+# -----------------------------
+ALLOWED_CATEGORIES = ["AI Tools", "Make Money Online", "Productivity", "Reviews"]
+ALLOWED_REGIONS = ["US", "EU", "GLOBAL"]
+
+
+def load_keywords_pool():
+    if not KEYWORDS_JSON.exists():
+        raise SystemExit("keywords.json is missing in repo root")
+
+    data = json.loads(KEYWORDS_JSON.read_text(encoding="utf-8"))
+    if not isinstance(data, list) or not data:
+        raise SystemExit("keywords.json is empty or invalid")
+
+    cleaned = []
+    for x in data:
+        if not isinstance(x, dict):
+            continue
+        kw = clean_title(str(x.get("keyword", "")).strip())
+        if not kw:
+            continue
+        cat = str(x.get("category", "AI Tools")).strip()
+        if cat not in ALLOWED_CATEGORIES:
+            cat = "AI Tools"
+        region = str(x.get("region", "GLOBAL")).strip().upper()
+        if region not in ALLOWED_REGIONS:
+            region = "GLOBAL"
+        try:
+            pr = int(x.get("priority", 3))
+        except Exception:
+            pr = 3
+        pr = max(1, min(5, pr))
+        cleaned.append({"keyword": kw, "category": cat, "region": region, "priority": pr})
+
+    if not cleaned:
+        raise SystemExit("keywords.json had no usable items")
+
+    # shuffle, then sort by priority desc so we still get variety within a priority band
+    random.shuffle(cleaned)
+    cleaned.sort(key=lambda d: d["priority"], reverse=True)
+    return cleaned
+
+
+def pick_keywords_to_write(existing_posts, n: int):
+    used = set()
+    for p in existing_posts:
+        used.add(normalize_key(p.get("keyword", "")))
+        used.add(normalize_key(p.get("title", "")))
+        used.add(normalize_key(p.get("slug", "")))
+
+    pool = load_keywords_pool()
+    picked = []
+    for item in pool:
+        if len(picked) >= n:
+            break
+        k = normalize_key(item["keyword"])
+        if k in used:
+            continue
+        picked.append(item)
+        used.add(k)
+
+    # if everything is used, just sample anyway
+    if not picked:
+        random.shuffle(pool)
+        picked = pool[:n]
+    return picked
+
 
 # -----------------------------
 # Networking / Images
@@ -186,10 +220,11 @@ def download_file(url: str, out_path: Path):
             if chunk:
                 f.write(chunk)
 
+
 def wikimedia_image_urls(query: str, limit: int = 18):
     """
     Wikimedia Commons candidates (JPG/PNG only)
-    SVG is forbidden
+    SVG forbidden
     """
     q = (query or "").strip()
     if not q:
@@ -238,24 +273,28 @@ def wikimedia_image_urls(query: str, limit: int = 18):
         out.append(u)
     return out
 
+
 def is_image_ok(file_path: Path) -> bool:
     try:
         return file_path.exists() and file_path.stat().st_size > 12_000
     except Exception:
         return False
 
+
 def strip_tags_keep_text(s: str) -> str:
     s = re.sub(r"<[^>]+>", " ", s or "")
     s = re.sub(r"\s+", " ", s).strip()
     return s
 
+
 def context_after_marker(body_html: str, marker: str, max_chars: int = 520) -> str:
     idx = (body_html or "").find(marker)
     if idx < 0:
         return ""
+
     tail = body_html[idx + len(marker):]
     blocks = re.findall(
-        r"(<h2[^>]*>.*?</h2>|<h3[^>]*>.*?</h3>|<p[^>]*>.*?</p>|<ul[^>]*>.*?</ul>)",
+        r"(<h2[^>]*>.*?</h2>|<h3[^>]*>.*?</h3>|<p[^>]*>.*?</p>|<ul[^>]*>.*?</ul>|<table[^>]*>.*?</table>)",
         tail,
         flags=re.IGNORECASE | re.DOTALL,
     )
@@ -271,7 +310,8 @@ def context_after_marker(body_html: str, marker: str, max_chars: int = 520) -> s
     out = " ".join(picked).strip()
     return out[:max_chars].strip()
 
-def build_image_search_queries(slug: str, keyword: str, category: str, ctx: str):
+
+def build_image_search_queries(slug: str, keyword: str, category: str, ctx: str, region: str):
     k = (keyword or "").strip()
     base = (ctx or "").strip()
     slug_q = (slug or "").replace("-", " ").strip()
@@ -284,17 +324,25 @@ def build_image_search_queries(slug: str, keyword: str, category: str, ctx: str)
     if slug_q:
         queries.append(slug_q[:120])
 
+    # region flavor
+    r = (region or "GLOBAL").upper()
+    if r == "US":
+        queries += ["united states office workspace photo", "usd budget spreadsheet photo"]
+    elif r == "EU":
+        queries += ["europe office workspace photo", "euro budget spreadsheet photo"]
+
+    # category flavor
     cat = (category or "").lower()
     if "ai tools" in cat:
         queries += [
             "modern laptop workspace photo",
             "person working on computer photo",
-            "ai concept technology photo",
+            "ai technology concept photo",
         ]
     elif "make money" in cat:
         queries += [
             "freelancer working laptop coffee photo",
-            "small business desk invoice photo",
+            "invoice document desk photo",
             "remote work home office photo",
         ]
     elif "productivity" in cat:
@@ -322,6 +370,7 @@ def build_image_search_queries(slug: str, keyword: str, category: str, ctx: str)
         seen.add(key)
         out.append(q2)
     return out
+
 
 def generate_image_openai(prompt: str, out_path: Path):
     p = (prompt or "").strip()
@@ -361,13 +410,22 @@ Content:
         return
     raise RuntimeError("OpenAI image response has no b64_json and no url")
 
-def ensure_images_text_matched(slug: str, keyword: str, category: str, body_html_with_markers: str):
+
+def ensure_images_text_matched(slug: str, keyword: str, category: str, region: str, body_html_with_markers: str):
+    """
+    Images strategy:
+    1) Try free Wikimedia JPG/PNG for all slots.
+    2) If some slots missing or irrelevant, use AI fallback for only ONE slot per post.
+    3) Any remaining slots reuse best available image (no more AI).
+    """
     folder = ASSETS_POSTS_DIR / slug
     folder.mkdir(parents=True, exist_ok=True)
 
-    paths_for_post_page = []
+    paths = [None] * IMG_COUNT
     used_free_urls = set()
+    ai_used = 0
 
+    # Step 1: free first
     for i in range(IMG_COUNT):
         n = i + 1
         jpg_path = folder / f"{n}.jpg"
@@ -376,19 +434,17 @@ def ensure_images_text_matched(slug: str, keyword: str, category: str, body_html
             jpg_path.unlink(missing_ok=True)
 
         if jpg_path.exists() and is_image_ok(jpg_path):
-            paths_for_post_page.append(f"../assets/posts/{slug}/{n}.jpg")
+            paths[i] = f"../assets/posts/{slug}/{n}.jpg"
             continue
 
         marker = f"<!--IMG{n}-->"
         ctx = context_after_marker(body_html_with_markers, marker, max_chars=520)
-        queries = build_image_search_queries(slug, keyword, category, ctx)
+        queries = build_image_search_queries(slug, keyword, category, ctx, region)
 
-        got = False
-
-        # 1) Wikimedia first
+        got_free = False
         for q in queries:
             try:
-                urls = wikimedia_image_urls(q, limit=18)
+                urls = wikimedia_image_urls(q, limit=WIKIMEDIA_LIMIT)
                 random.shuffle(urls)
                 for u in urls:
                     if u in used_free_urls:
@@ -397,37 +453,52 @@ def ensure_images_text_matched(slug: str, keyword: str, category: str, body_html
                         download_file(u, jpg_path)
                         if is_image_ok(jpg_path):
                             used_free_urls.add(u)
-                            got = True
+                            got_free = True
                             break
                         jpg_path.unlink(missing_ok=True)
                     except Exception:
                         jpg_path.unlink(missing_ok=True)
                         continue
-                if got:
+                if got_free:
                     break
             except Exception:
                 continue
 
-        # 2) Force OpenAI fallback
-        if not got and IMAGE_PROVIDER == "openai":
-            generate_image_openai(ctx or f"{keyword} premium photorealistic blog photo", jpg_path)
-            if not is_image_ok(jpg_path):
-                raise RuntimeError(f"OpenAI image generation produced an invalid file: {slug}/{n}.jpg")
-            got = True
+        if got_free:
+            paths[i] = f"../assets/posts/{slug}/{n}.jpg"
+        else:
+            paths[i] = None
 
-        if not got:
-            raise RuntimeError(f"Failed to fetch or generate image: {slug}/{n}.jpg")
+        time.sleep(0.12)
 
-        paths_for_post_page.append(f"../assets/posts/{slug}/{n}.jpg")
-        time.sleep(0.15)
+    # Step 2: AI fallback for first missing only
+    if IMAGE_PROVIDER == "openai" and ai_used < MAX_AI_IMAGES_PER_POST and any(p is None for p in paths):
+        first_missing = next(i for i, p in enumerate(paths) if p is None)
+        n = first_missing + 1
+        jpg_path = folder / f"{n}.jpg"
+        marker = f"<!--IMG{n}-->"
+        ctx = context_after_marker(body_html_with_markers, marker, max_chars=520)
+        generate_image_openai(ctx or f"{keyword} photorealistic blog image", jpg_path)
+        if not is_image_ok(jpg_path):
+            raise RuntimeError(f"AI image failed: {slug}/{n}.jpg")
+        paths[first_missing] = f"../assets/posts/{slug}/{n}.jpg"
+        ai_used += 1
 
-    return paths_for_post_page
+    # Step 3: fill remaining by reuse
+    fallback = next((p for p in paths if p is not None), None)
+    if not fallback:
+        raise RuntimeError("No images available at all")
+
+    for i in range(IMG_COUNT):
+        if paths[i] is None:
+            paths[i] = fallback
+
+    return paths
+
 
 # -----------------------------
 # Body sanitize
 # -----------------------------
-ALLOWED_TAGS_HINT = "<h2> <h3> <p> <ul> <li> <hr> <strong> <a> <table> <thead> <tbody> <tr> <th> <td>"
-
 def sanitize_body_html(body_html: str) -> str:
     s = (body_html or "").strip()
 
@@ -444,7 +515,9 @@ def sanitize_body_html(body_html: str) -> str:
 
     return s.strip()
 
+
 def distribute_missing_markers(body_html: str) -> str:
+    # keep one instance only
     for i in range(1, IMG_COUNT + 1):
         m = f"<!--IMG{i}-->"
         parts = body_html.split(m)
@@ -475,6 +548,7 @@ def distribute_missing_markers(body_html: str) -> str:
 
     return "".join(chunks)
 
+
 def build_image_block(src: str, alt: str):
     return f"""
 <figure class="photo" style="margin:18px 0;">
@@ -482,12 +556,35 @@ def build_image_block(src: str, alt: str):
 </figure>
 """.strip()
 
+
 # -----------------------------
-# Prompting (English only)
+# Prompting (English only + region localized)
 # -----------------------------
-def make_outline_prompt(keyword: str, title: str, category: str):
+def region_hints(region: str) -> str:
+    r = (region or "GLOBAL").upper()
+    if r == "US":
+        return (
+            "Use US examples. Use USD when referencing costs. Mention US-specific tools or norms when useful. "
+            "Keep it friendly and direct."
+        )
+    if r == "EU":
+        return (
+            "Use Europe examples. Use EUR or GBP when referencing costs. Mention EU/UK norms when useful. "
+            "Keep it friendly and direct."
+        )
+    return (
+        "Use both US and Europe examples when helpful. Use USD/EUR neutrally. "
+        "Keep it friendly and direct."
+    )
+
+
+def make_outline_prompt(keyword: str, title: str, category: str, region: str):
     return f"""
 You are an editor for a premium niche blog called {SITE_NAME}.
+Write in English only.
+
+Audience: young professionals in the US and Europe.
+Localization: {region_hints(region)}
 
 Keyword: {keyword}
 Category: {category}
@@ -523,11 +620,13 @@ Schema:
 Rules:
 - 7 to 9 H2 sections
 - 1 to 3 H3 per H2
-- Add a comparison table plan (realistic columns)
+- Include a pricing and alternatives angle
+- Add a comparison table plan with realistic columns
 - 5 to 7 FAQ items
 """.strip()
 
-def make_body_prompt(keyword: str, title: str, category: str, internal_links, outline_json: str):
+
+def make_body_prompt(keyword: str, title: str, category: str, region: str, internal_links, outline_json: str):
     link_hints = ""
     if len(internal_links) >= 2:
         a = internal_links[0]
@@ -543,6 +642,9 @@ Use the tags exactly as shown:
     return f"""
 You are writing a premium, SEO optimized, long form article for {SITE_NAME}.
 Write in English only.
+
+Audience: young professionals in the US and Europe.
+Localization: {region_hints(region)}
 
 Keyword: {keyword}
 Category: {category}
@@ -565,7 +667,8 @@ Hard rules:
   3) FAQ
 
 Table requirement:
-- Include one comparison table (HTML <table>) that helps the reader choose.
+- Include one comparison table (<table>) that helps the reader choose.
+- Use realistic criteria. Not vague.
 - Keep it scannable.
 
 Image markers:
@@ -586,8 +689,9 @@ Length:
 Now write the full article.
 """.strip()
 
+
 # -----------------------------
-# HTML builder
+# HTML builder (English only)
 # -----------------------------
 def build_post_html(
     slug,
@@ -599,6 +703,7 @@ def build_post_html(
     internal_links,
     body_html,
     image_srcs,
+    region,
 ):
     today = now_utc_date()
 
@@ -641,6 +746,15 @@ def build_post_html(
 </p>
 """.strip()
 
+    # region label for meta
+    reg_label = (region or "GLOBAL").upper()
+    if reg_label == "US":
+        reg_badge = "US"
+    elif reg_label == "EU":
+        reg_badge = "EU"
+    else:
+        reg_badge = "US + EU"
+
     html_doc = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -675,11 +789,12 @@ def build_post_html(
     <h1 class="post-title-xl">{safe_text(title)}</h1>
 
     <p class="post-lead">
-      A practical breakdown of {safe_text(keyword)}.
+      A practical breakdown of {safe_text(keyword)} for {reg_badge}.
     </p>
 
     <div class="post-meta">
       <span class="badge">🧠 {safe_text(category)}</span>
+      <span class="badge">🌍 {reg_badge}</span>
       <span>•</span>
       <span>Updated: {today}</span>
       <span>•</span>
@@ -767,44 +882,20 @@ def build_post_html(
 """
     return html_doc
 
-# -----------------------------
-# Topic selection
-# -----------------------------
-def normalize_key(s: str) -> str:
-    s = (s or "").lower().strip()
-    s = re.sub(r"\s+", " ", s)
-    return s
-
-def pick_topics_to_write(existing_posts, topics, n):
-    used_keys = set()
-    for p in existing_posts:
-        used_keys.add(normalize_key(p.get("keyword") or ""))
-        used_keys.add(normalize_key(p.get("title") or ""))
-
-    pool = []
-    for t in topics:
-        k = normalize_key(t)
-        if not k:
-            continue
-        if k in used_keys:
-            continue
-        pool.append(t)
-
-    if not pool:
-        # If everything is used, still proceed with random topics
-        pool = topics[:]
-
-    random.shuffle(pool)
-    return pool[:n]
 
 # -----------------------------
-# Create post from keyword (NO RSS)
+# Create post from keyword item
 # -----------------------------
-def create_post_from_keyword(keyword, existing_posts):
-    keyword = clean_title(keyword)
-    category = guess_category(keyword)
+def create_post_from_keyword_item(item, existing_posts):
+    keyword = clean_title(item["keyword"])
+    category = item.get("category", "AI Tools")
+    if category not in ALLOWED_CATEGORIES:
+        category = "AI Tools"
+    region = item.get("region", "GLOBAL").upper()
+    if region not in ALLOWED_REGIONS:
+        region = "GLOBAL"
 
-    # Title prompt: short, click worthy, no year spam
+    # Title prompt: short, useful
     title_prompt = f"""
 Generate one SEO title in English for this keyword.
 Keyword: {keyword}
@@ -815,14 +906,14 @@ Rules:
 - No quotes
 - No emoji
 - No clickbait
-- Must be useful
+- Must be practical
 Return title only.
 """.strip()
 
     t_res = client.chat.completions.create(
         model=MODEL,
         messages=[{"role": "user", "content": title_prompt}],
-        temperature=0.5,
+        temperature=0.45,
         max_tokens=120,
     )
     title = clean_title((t_res.choices[0].message.content or "").strip())
@@ -839,12 +930,12 @@ Return title only.
 
     internal_links = choose_internal_links(existing_posts, slug, k=2)
 
-    outline_prompt = make_outline_prompt(keyword, title, category)
+    outline_prompt = make_outline_prompt(keyword, title, category, region)
     outline_res = client.chat.completions.create(
         model=MODEL,
         messages=[{"role": "user", "content": outline_prompt}],
-        temperature=0.6,
-        max_tokens=1600,
+        temperature=0.55,
+        max_tokens=1700,
     )
     outline_json = (outline_res.choices[0].message.content or "").strip()
 
@@ -852,11 +943,11 @@ Return title only.
         outline_json = re.sub(r"^```[a-zA-Z]*\s*", "", outline_json)
         outline_json = re.sub(r"\s*```$", "", outline_json).strip()
 
-    body_prompt = make_body_prompt(keyword, title, category, internal_links, outline_json)
+    body_prompt = make_body_prompt(keyword, title, category, region, internal_links, outline_json)
     res = client.chat.completions.create(
         model=MODEL,
         messages=[{"role": "user", "content": body_prompt}],
-        temperature=0.55,
+        temperature=0.52,
         max_tokens=7000,
     )
     body_html = (res.choices[0].message.content or "").strip()
@@ -868,8 +959,8 @@ Return title only.
 
     body_html = distribute_missing_markers(body_html)
 
-    image_srcs = ensure_images_text_matched(slug, keyword, category, body_html)
-    description = make_meta_description(keyword)
+    image_srcs = ensure_images_text_matched(slug, keyword, category, region, body_html)
+    description = make_meta_description(keyword, region)
     source_link = make_search_reference_url(keyword)
 
     html_doc = build_post_html(
@@ -882,6 +973,7 @@ Return title only.
         internal_links=internal_links,
         body_html=body_html,
         image_srcs=image_srcs,
+        region=region,
     )
 
     (POSTS_DIR / f"{slug}.html").write_text(html_doc, encoding="utf-8")
@@ -896,29 +988,30 @@ Return title only.
         "date": now_utc_date(),
         "views": 0,
         "thumbnail": thumb,
-        "keyword": keyword,  # helps dedupe later
+        "keyword": keyword,
+        "region": region,
     }
     return new_item
+
 
 def main():
     ensure_dirs()
     existing = load_posts_json()
 
-    topics = load_topics()
-    to_write = pick_topics_to_write(existing, topics, POSTS_PER_RUN)
+    items = pick_keywords_to_write(existing, POSTS_PER_RUN)
 
     created = 0
     new_posts = []
 
-    for kw in to_write:
+    for it in items:
         try:
-            new_item = create_post_from_keyword(kw, existing + new_posts)
+            new_item = create_post_from_keyword_item(it, existing + new_posts)
             new_posts.append(new_item)
             created += 1
             print("CREATED:", new_item["slug"])
             time.sleep(0.25)
         except Exception as e:
-            print("FAILED:", kw, "->", str(e))
+            print("FAILED:", it.get("keyword", "unknown"), "->", str(e))
             continue
 
     if not new_posts:
@@ -928,6 +1021,7 @@ def main():
     save_posts_json(merged)
 
     print("POSTS CREATED:", created)
+
 
 if __name__ == "__main__":
     main()
