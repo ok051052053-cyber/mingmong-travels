@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>MingMong | Smart Tools for Young Professionals</title>
   <meta name="description" content="AI tools, productivity workflows, and practical ways to earn more. Clear guides for young professionals in the US and Europe." />
-  <link rel="stylesheet" href="style.css?v=5" />
+  <link rel="stylesheet" href="style.css?v=7" />
 
   <!-- Google tag (gtag.js) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-9PWEGHXHE7"></script>
@@ -105,24 +105,49 @@
   <section class="layout">
 
     <article class="card article">
-      <div class="article-head">
-        <h2>Latest Articles</h2>
-        <p class="article-sub">All posts are shown here.</p>
-      </div>
+      <h2>Latest Articles</h2>
+      <p class="muted-note">All posts are shown here.</p>
       <hr class="hr" />
       <div id="latest-list" class="latest-grid"></div>
-      <div id="latest-empty" class="tiny-note" style="display:none;">No posts yet</div>
     </article>
 
     <aside class="sidebar">
 
       <div class="card sidebox">
         <h4>Start here</h4>
-        <div class="side-links">
-          <a href="category.html?cat=AI%20Tools"><span>AI Tools</span><small>Tools that save time</small></a>
-          <a href="category.html?cat=Make%20Money"><span>Make Money</span><small>High intent guides</small></a>
-          <a href="category.html?cat=Productivity"><span>Productivity</span><small>Workflows that stick</small></a>
-          <a href="category.html?cat=Reviews"><span>Reviews</span><small>Pricing and alternatives</small></a>
+
+        <div class="start-grid">
+          <a class="start-item" href="category.html?cat=AI%20Tools">
+            <span class="start-left">
+              <span class="start-ico" aria-hidden="true">🤖</span>
+              <span class="start-name">AI Tools</span>
+            </span>
+            <span class="start-desc">Tools that save time</span>
+          </a>
+
+          <a class="start-item" href="category.html?cat=Make%20Money">
+            <span class="start-left">
+              <span class="start-ico" aria-hidden="true">💸</span>
+              <span class="start-name">Make Money</span>
+            </span>
+            <span class="start-desc">High intent guides</span>
+          </a>
+
+          <a class="start-item" href="category.html?cat=Productivity">
+            <span class="start-left">
+              <span class="start-ico" aria-hidden="true">⚡</span>
+              <span class="start-name">Productivity</span>
+            </span>
+            <span class="start-desc">Workflows that stick</span>
+          </a>
+
+          <a class="start-item" href="category.html?cat=Reviews">
+            <span class="start-left">
+              <span class="start-ico" aria-hidden="true">🧾</span>
+              <span class="start-name">Reviews</span>
+            </span>
+            <span class="start-desc">Pricing and alternatives</span>
+          </a>
         </div>
       </div>
 
@@ -199,7 +224,7 @@
     const wrap = document.getElementById("popular-picks");
     if (!wrap) return;
 
-    const pool = posts.filter(p => p && p.slug).slice(0, 8);
+    const pool = posts.filter(p => p && p.slug).slice(0, 6);
     if (!pool.length) {
       wrap.innerHTML = `<div class="tiny-note">No posts yet</div>`;
       return;
@@ -226,17 +251,8 @@
       .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
 
     const latestWrap = document.getElementById("latest-list");
-    const emptyEl = document.getElementById("latest-empty");
-
-    if (!posts.length) {
-      if (emptyEl) emptyEl.style.display = "block";
-      if (latestWrap) latestWrap.innerHTML = "";
-      renderPopularPicks([]);
-      return;
-    }
-
-    // ✅ IMPORTANT: show ALL posts on home
     if (latestWrap) {
+      // ✅ 홈에서 전부 보여주기
       latestWrap.innerHTML = posts.map(postCardVertical).join("");
     }
 
