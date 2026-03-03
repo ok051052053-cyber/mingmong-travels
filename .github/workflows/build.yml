@@ -22,21 +22,3 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-
-      - name: Build sitemap
-        run: python tools/build.py
-
-      - name: Commit changes if any (sitemap only)
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          git add sitemap.xml
-          git diff --staged --quiet || git commit -m "Auto build sitemap"
-
-      - name: Push changes (only if committed)
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          git log -1 --pretty=%B | grep -q "Auto build sitemap" || exit 0
-          git push
