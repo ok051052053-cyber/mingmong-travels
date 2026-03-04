@@ -31,19 +31,18 @@ jobs:
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           UNSPLASH_ACCESS_KEY: ${{ secrets.UNSPLASH_ACCESS_KEY }}
-
           SITE_NAME: MingMong
           SITE_URL: https://mingmonglife.com
-
           POSTS_PER_RUN: 1
-          MIN_CHARS: 2500
-
           IMG_COUNT: 4
-          MAX_IMAGE_ATTEMPTS: 200
-          MIN_IMAGE_BYTES: 80000
-
+          MIN_CHARS: 2500
           MODEL: gpt-4o-mini
           HTTP_TIMEOUT: 30
+          UNSPLASH_MIN_WIDTH: 1800
+          UNSPLASH_MIN_LIKES: 50
+          UNSPLASH_SEARCH_PAGES: 3
+          UNSPLASH_TRIES_PER_IMAGE: 4
+          MAX_EXPAND: 4
         run: |
           python tools/auto_post.py
 
