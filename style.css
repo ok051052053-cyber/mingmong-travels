@@ -8,13 +8,14 @@
   --shadow:0 12px 32px rgba(15,23,42,.08);
   --accent:#2563eb;
   --accent2:#06b6d4;
-
-  /* PC 화면 더 시원하게 */
   --max:1280px;
-
   --radius:16px;
+
+  --gradA: rgba(37,99,235,.14);
+  --gradB: rgba(6,182,212,.12);
 }
 
+/* RESET */
 *{box-sizing:border-box}
 html,body{height:100%}
 body{
@@ -25,22 +26,21 @@ body{
   line-height:1.7;
   -webkit-font-smoothing:antialiased;
 }
-
 img{max-width:100%;height:auto;display:block}
 a{color:var(--accent);text-decoration:none}
 a:hover{text-decoration:underline}
 
-/* ✅ 모바일에서도 좌우 여백 확실히 */
+/* CONTAINER */
 .container{
   max-width:var(--max);
   margin:0 auto;
-  padding:0 26px;
+  padding:0 18px;
 }
 @media(min-width:680px){
-  .container{padding:0 34px;}
+  .container{padding:0 28px;}
 }
 @media(min-width:980px){
-  .container{padding:0 44px;}
+  .container{padding:0 32px;}
 }
 
 /* HEADER */
@@ -119,17 +119,13 @@ a:hover{text-decoration:underline}
   margin:0 0 12px;
 }
 .hero-title{
-  font-size:clamp(44px,6vw,84px);
+  font-size:clamp(52px,6vw,92px);
   line-height:1.02;
   letter-spacing:-.055em;
   margin:0 0 18px;
   font-weight:950;
 }
-.hero-light{
-  display:block;
-  color:#94a3b8;
-  font-weight:800;
-}
+.hero-light{display:block;color:#94a3b8;font-weight:800}
 .hero-strong{
   display:block;
   background:linear-gradient(90deg,#2563eb,#06b6d4);
@@ -174,15 +170,11 @@ a:hover{text-decoration:underline}
   box-shadow:var(--shadow);
 }
 
-/* ARTICLE BLOCKS */
+/* ARTICLE */
 .article{padding:20px}
 .article h2{margin:0 0 6px;font-size:20px}
 .hr{height:1px;background:var(--border);border:0;margin:18px 0}
-.tiny-note{
-  margin:8px 0 0;
-  color:var(--muted);
-  font-size:12px;
-}
+.tiny-note{margin:8px 0 0;color:var(--muted);font-size:12px}
 
 /* TOPIC GRID */
 .topic-grid{
@@ -226,29 +218,11 @@ a:hover{text-decoration:underline}
   font-size:18px;
   color:#111;
 }
-.topic-item:hover .topic-ico{
-  background:rgba(255,255,255,.9);
-}
-.topic-text{
-  display:flex;
-  flex-direction:column;
-  gap:4px;
-  min-width:0;
-}
-.topic-title{
-  font-weight:900;
-  line-height:1.2;
-  letter-spacing:-.01em;
-}
-.topic-desc{
-  color:var(--muted);
-  font-weight:700;
-  font-size:12px;
-  opacity:.9;
-}
-.topic-item:hover .topic-desc{
-  color:rgba(255,255,255,.9);
-}
+.topic-item:hover .topic-ico{background:rgba(255,255,255,.9)}
+.topic-text{display:flex;flex-direction:column;gap:4px;min-width:0}
+.topic-title{font-weight:900;line-height:1.2;letter-spacing:-.01em}
+.topic-desc{color:var(--muted);font-weight:700;font-size:12px;opacity:.9}
+.topic-item:hover .topic-desc{color:rgba(255,255,255,.9)}
 
 /* LATEST GRID */
 .latest-grid{
@@ -297,11 +271,7 @@ a:hover{text-decoration:underline}
   margin-bottom:8px;
   color:var(--text);
 }
-.post-desc{
-  color:var(--muted);
-  font-size:13px;
-  margin:0;
-}
+.post-desc{color:var(--muted);font-size:13px;margin:0}
 .post-body{min-width:0}
 
 /* vertical card */
@@ -319,10 +289,12 @@ a:hover{text-decoration:underline}
   .post-card--v .thumb{height:170px;}
 }
 
-/* SIDEBAR (home) */
+/* SIDEBAR */
 .sidebar{display:flex;flex-direction:column;gap:14px}
 .related{padding:16px}
 .related h4{margin:0 0 10px;font-size:14px}
+
+/* popular links */
 #popular-picks{display:flex;flex-direction:column;gap:10px}
 .hot-link{
   display:flex;
@@ -368,18 +340,40 @@ a:hover{text-decoration:underline}
 }
 
 /* =========================
-   POST PAGE
+   POST PAGE (핵심)
    ========================= */
-.post-page{padding:24px 0 56px}
+.post-page{
+  padding:24px 0 56px;
+}
+
+/* ✅ 모바일에서도 좌우 여백 강제 */
+.container.post-page{
+  padding-left:18px !important;
+  padding-right:18px !important;
+}
+@media(min-width:680px){
+  .container.post-page{
+    padding-left:28px !important;
+    padding-right:28px !important;
+  }
+}
+@media(min-width:980px){
+  .container.post-page{
+    padding-left:32px !important;
+    padding-right:32px !important;
+  }
+}
+
 .post-shell{
   width:100%;
   max-width:none;
+  margin:0 auto;
 }
 
-/* 제목이 벽에 붙는 느낌 방지 */
+/* 기본은 1컬럼 */
 .post-header{padding:0}
 .post-h1{
-  font-size:clamp(30px,4.2vw,56px);
+  font-size:clamp(30px,4.8vw,54px);
   line-height:1.12;
   letter-spacing:-.03em;
   margin:10px 0 10px;
@@ -393,16 +387,18 @@ a:hover{text-decoration:underline}
   font-size:13px;
   margin-top:6px;
 }
-.post-hero{margin:18px 0 18px}
+
+.post-hero{margin:18px 0}
 .post-hero img{
   width:100%;
   border-radius:18px;
   border:1px solid var(--border);
   box-shadow:var(--shadow);
 }
+
 .post-content{width:100%}
 .post-content h2{margin:22px 0 10px;letter-spacing:-.02em}
-.post-content p{margin:12px 0;color:#1f2937}
+.post-content p{margin:10px 0;color:#1f2937}
 .post-content ul{margin:10px 0 10px 18px}
 .post-content img{
   width:100%;
@@ -412,9 +408,13 @@ a:hover{text-decoration:underline}
   margin:18px 0;
 }
 
-/* ✅ PC: 글 + 사이드바 */
-@media (min-width:980px){
-  .post-shell{
+/* =========================
+   POST PAGE SIDEBAR (PC)
+   - HTML에 .post-main, .post-aside가 있으면 깔끔
+   - 없어도 본문은 정상 표시
+   ========================= */
+@media(min-width:980px){
+  .post-shell.has-aside{
     display:grid;
     grid-template-columns:minmax(0,1fr) 360px;
     gap:32px;
@@ -439,11 +439,7 @@ a:hover{text-decoration:underline}
     font-size:16px;
     font-weight:800;
   }
-
-  .post-aside .catlist{
-    display:grid;
-    gap:10px;
-  }
+  .post-aside .catlist{display:grid;gap:10px}
   .post-aside .catitem{
     display:flex;
     gap:10px;
@@ -454,7 +450,6 @@ a:hover{text-decoration:underline}
     background:rgba(248,250,252,.9);
     text-decoration:none;
     color:inherit;
-    transition:transform .16s ease, box-shadow .16s ease;
   }
   .post-aside .catitem:hover{
     transform:translateY(-1px);
@@ -469,45 +464,12 @@ a:hover{text-decoration:underline}
     background:rgba(37,99,235,.12);
     flex:0 0 34px;
   }
-  .post-aside .cattext{
-    display:grid;
-    gap:2px;
-    min-width:0;
-  }
-  .post-aside .catname{
-    font-weight:800;
-    font-size:14px;
-    line-height:1.2;
-  }
-  .post-aside .catsub{
-    font-size:12px;
-    color:rgba(15,23,42,.60);
-    line-height:1.2;
-  }
+  .post-aside .cattext{display:grid;gap:2px;min-width:0}
+  .post-aside .catname{font-weight:800;font-size:14px;line-height:1.2}
+  .post-aside .catsub{font-size:12px;color:rgba(15,23,42,.60);line-height:1.2}
 }
 
-/* ✅ 모바일: 사이드바 숨김 */
-@media (max-width:979px){
-  .post-aside{display:none !important}
-}
-
-
-/* =========================
-   FORCE MOBILE SIDE PADDING ON POST PAGES
-   ========================= */
-@media (max-width: 979px){
-  /* main이 container post-page라서 여기서 강제로 좌우 여백 확정 */
-  main.container.post-page{
-    padding-left: 28px !important;
-    padding-right: 28px !important;
-  }
-
-  /* post 내부가 또 풀폭으로 잡히는 경우 방지 */
-  .post-shell,
-  .post-header,
-  .post-content,
-  .post-hero{
-    width: 100% !important;
-    max-width: 100% !important;
-  }
+/* 모바일에서는 사이드바 숨김 */
+@media(max-width:979px){
+  .post-aside{display:none !important;}
 }
