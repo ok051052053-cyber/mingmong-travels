@@ -3,7 +3,7 @@ name: Auto Post
 on:
   workflow_dispatch:
   schedule:
-    - cron: "20 1 * * *"
+    - cron: "20 1 * * *" # 매일 01:20 UTC (KST 10:20)
 
 permissions:
   contents: write
@@ -31,13 +31,19 @@ jobs:
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           UNSPLASH_ACCESS_KEY: ${{ secrets.UNSPLASH_ACCESS_KEY }}
+
           SITE_NAME: MingMong
           SITE_URL: https://mingmonglife.com
-          POSTS_PER_RUN: 3
-          IMG_COUNT: 5
-          MIN_CHARS: 3200
-          IMAGE_PROVIDER: unsplash
+
+          POSTS_PER_RUN: 1
+          MIN_CHARS: 2500
+
+          IMG_COUNT: 4
+          MAX_IMAGE_ATTEMPTS: 200
+          MIN_IMAGE_BYTES: 80000
+
           MODEL: gpt-4o-mini
+          HTTP_TIMEOUT: 30
         run: |
           python tools/auto_post.py
 
