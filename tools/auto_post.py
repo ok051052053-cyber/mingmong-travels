@@ -6,7 +6,7 @@ import html
 import random
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
+from typing import List, Tuple
 
 import requests
 from slugify import slugify
@@ -34,26 +34,33 @@ POSTS_PER_RUN = int(os.environ.get("POSTS_PER_RUN", "1"))
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "").strip()
 MODEL = os.environ.get("MODEL", "gpt-4o-mini").strip()
 
+# Content quality
 MIN_CHARS = int(os.environ.get("MIN_CHARS", "2500"))
-IMG_COUNT = int(os.environ.get("IMG_COUNT", "4"))
+IMG_COUNT = int(os.environ.get("IMG_COUNT", "4"))  # 최소 4장
 MAX_KEYWORD_TRIES = int(os.environ.get("MAX_KEYWORD_TRIES", "12"))
 
+# Unsplash only (no AI)
 UNSPLASH_ACCESS_KEY = os.environ.get("UNSPLASH_ACCESS_KEY", "").strip()
 
-HTTP_TIMEOUT = 35
+HTTP_TIMEOUT = int(os.environ.get("HTTP_TIMEOUT", "35"))
 
+# Image quality filters
 UNSPLASH_MIN_WIDTH = int(os.environ.get("UNSPLASH_MIN_WIDTH", "2000"))
 UNSPLASH_MIN_HEIGHT = int(os.environ.get("UNSPLASH_MIN_HEIGHT", "1200"))
 UNSPLASH_MIN_LIKES = int(os.environ.get("UNSPLASH_MIN_LIKES", "50"))
 UNSPLASH_PER_PAGE = int(os.environ.get("UNSPLASH_PER_PAGE", "30"))
 
+# Unsplash search depth (optional)
+UNSPLASH_SEARCH_PAGES = int(os.environ.get("UNSPLASH_SEARCH_PAGES", "3"))
+
 # -----------------------------
-# OpenAI
+# OpenAI (works with openai>=1.x OR old openai 0.x)
 # -----------------------------
 def _openai_generate_text(prompt: str) -> str:
     if not OPENAI_API_KEY:
         raise RuntimeError("Missing OPENAI_API_KEY")
 
+    # Try openai>=1.x style
     try:
         from openai import OpenAI  # type: ignore
         client = OpenAI(api_key=OPENAI_API_KEY)
@@ -65,6 +72,7 @@ def _openai_generate_text(prompt: str) -> str:
     except Exception:
         pass
 
+    # Fallback old openai 0.x style
     try:
         import openai  # type: ignore
         openai.api_key = OPENAI_API_KEY
@@ -102,6 +110,13 @@ def safe_write(path: Path, content: str) -> None:
     path.write_text(content, encoding="utf-8")
 
 def ensure_used_schema(used_raw):
+    """
+    used_images.json 가
+    - dict {"unsplash_ids":[...]} 일 수도
+    - list ["id1","id2"] 일 수도
+    - 이상한 값일 수도
+    어떤 경우든 dict 스키마로 정규화
+    """
     if isinstance(used_raw, dict):
         if "unsplash_ids" not in used_raw or not isinstance(used_raw.get("unsplash_ids"), list):
             used_raw["unsplash_ids"] = []
@@ -112,15 +127,15 @@ def ensure_used_schema(used_raw):
 
     return {"unsplash_ids": []}
 
-def pick_category_from_keyword_text(keyword: str) -> str:
+def pick_category(keyword: str) -> str:
     k = keyword.lower()
-    if any(x in k for x in ["adhd", "focus", "productivity", "pomodoro", "time"]):
+    if any(x in k for x in ["adhd", "focus", "productivity", "pomodoro", "time", "calendar", "tracking"]):
         return "Productivity"
-    if any(x in k for x in ["review", "best", "vs", "compare", "comparison"]):
+    if any(x in k for x in ["review", "best", "vs", "compare", "comparison", "alternatives"]):
         return "Reviews"
-    if any(x in k for x in ["money", "side hustle", "freelance", "invoice", "tax"]):
-        return "Make Money Online"
-    if any(x in k for x in ["ai", "chatgpt", "automation", "notion", "claude"]):
+    if any(x in k for x in ["money", "side hustle", "freelance", "invoice", "tax", "sell", "pricing"]):
+        return "Make Money"
+    if any(x in k for x in ["ai", "chatgpt", "automation", "notion", "claude", "pdf", "summarizer"]):
         return "AI Tools"
     return "Productivity"
 
@@ -134,6 +149,9 @@ def short_desc(title: str) -> str:
 # Unsplash
 # -----------------------------
 def unsplash_search(query: str, page: int = 1) -> dict:
+    if not UNSPLASH_ACCESS_KEY:
+        raise RuntimeError("Missing UNSPLASH_ACCESS_KEY")
+
     url = "https://api.unsplash.com/search/photos"
     headers = {
         "Accept-Version": "v1",
@@ -172,11 +190,11 @@ def pick_high_quality_unsplash(results: List[dict], used_ids: set) -> List[dict]
                 continue
 
             urls = item.get("urls") or {}
-            if not urls.get("raw") and not urls.get("full") and not urls.get("regular"):
+            if not (urls.get("raw") or urls.get("full") or urls.get("regular")):
                 continue
 
             user = item.get("user") or {}
-            if not user.get("name") or not user.get("links", {}).get("html"):
+            if not user.get("name") or not (user.get("links", {}) or {}).get("html"):
                 continue
 
             picked.append(item)
@@ -187,36 +205,34 @@ def pick_high_quality_unsplash(results: List[dict], used_ids: set) -> List[dict]
 def download_unsplash_photo(item: dict, out_path: Path) -> None:
     urls = item.get("urls") or {}
     raw = urls.get("raw") or urls.get("full") or urls.get("regular")
+    if not raw:
+        raise RuntimeError("Unsplash item has no downloadable url")
 
-    if "?" in raw:
-        dl = raw + "&fm=jpg&q=80&w=1800&fit=max"
-    else:
-        dl = raw + "?fm=jpg&q=80&w=1800&fit=max"
-
+    # raw에 파라미터 붙여 고화질 jpg로 받기
+    dl = raw + ("&" if "?" in raw else "?") + "fm=jpg&q=80&w=1800&fit=max"
     r = requests.get(dl, timeout=HTTP_TIMEOUT)
     r.raise_for_status()
+
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_bytes(r.content)
 
-def get_high_quality_photos(slug: str, title: str, count: int) -> Tuple[List[str], List[str]]:
-    if not UNSPLASH_ACCESS_KEY:
-        raise RuntimeError("Missing UNSPLASH_ACCESS_KEY")
-
+def get_high_quality_photos(title: str, count: int) -> Tuple[List[str], List[str]]:
     used_raw = load_json(USED_IMAGES_JSON, {})
     used = ensure_used_schema(used_raw)
     used_ids = set(used.get("unsplash_ids") or [])
 
     base = re.sub(r"[^a-zA-Z0-9\s\-]", " ", title).strip()
     q1 = base if base else title
-    q2 = " ".join([w for w in base.split()[:5]]) if base else title
+    q2 = " ".join(base.split()[:5]) if base else title
     queries = [q for q in [q1, q2] if q]
 
     chosen_items: List[dict] = []
+
     for q in queries:
         if len(chosen_items) >= count:
             break
 
-        for page in [1, 2, 3]:
+        for page in range(1, UNSPLASH_SEARCH_PAGES + 1):
             data = unsplash_search(q, page=page)
             results = data.get("results") or []
             candidates = pick_high_quality_unsplash(results, used_ids)
@@ -225,7 +241,7 @@ def get_high_quality_photos(slug: str, title: str, count: int) -> Tuple[List[str
                 if len(chosen_items) >= count:
                     break
                 pid = it.get("id")
-                if pid in used_ids:
+                if not pid or pid in used_ids:
                     continue
                 chosen_items.append(it)
                 used_ids.add(pid)
@@ -239,6 +255,7 @@ def get_high_quality_photos(slug: str, title: str, count: int) -> Tuple[List[str
     image_paths: List[str] = []
     credits: List[str] = []
 
+    slug = slugify(title)[:80] or f"post-{int(time.time())}"
     folder = ASSETS_POSTS_DIR / slug
     folder.mkdir(parents=True, exist_ok=True)
 
@@ -248,9 +265,9 @@ def get_high_quality_photos(slug: str, title: str, count: int) -> Tuple[List[str
         image_paths.append(f"assets/posts/{slug}/{i}.jpg")
 
         user = it.get("user") or {}
-        name = user.get("name")
-        link = (user.get("links") or {}).get("html")
-        photo_link = (it.get("links") or {}).get("html")
+        name = user.get("name") or "Unknown"
+        link = (user.get("links") or {}).get("html") or ""
+        photo_link = (it.get("links") or {}).get("html") or ""
 
         credits.append(f"- Photo {i}: {name} on Unsplash ({link}) ({photo_link})")
 
@@ -262,21 +279,18 @@ def get_high_quality_photos(slug: str, title: str, count: int) -> Tuple[List[str
 # -----------------------------
 # Writing
 # -----------------------------
-def build_prompt(keyword: str, region: str) -> str:
-    region_line = ""
-    if region and region.upper() != "GLOBAL":
-        region_line = f"Audience region: {region}\n"
-
+def build_prompt(keyword: str) -> str:
     return f"""
 Write a deep, practical, non-fluffy blog post in English for US and EU readers.
 
-{region_line}Topic keyword: "{keyword}"
+Topic keyword: "{keyword}"
 
 Hard requirements:
-- Total length must be at least {MIN_CHARS} characters.
+- Total length must be at least {MIN_CHARS} characters (not words).
 - Must include: TL;DR section, Who this is for, Key ideas, Step-by-step guide, Common mistakes, Checklist, and FAQ.
-- Use concrete examples and actionable steps.
-- No generic filler.
+- Use concrete examples, mini case studies, and actionable steps.
+- No generic filler. No repeating the same idea.
+- Avoid medical or legal claims unless clearly labeled as general info.
 - Output format: Markdown.
 - Start with a strong title on the first line (H1).
 """.strip()
@@ -285,7 +299,7 @@ def extract_title(md: str) -> str:
     for line in md.splitlines():
         if line.strip().startswith("# "):
             return line.strip()[2:].strip()
-    first = md.strip().splitlines()[0].strip()
+    first = md.strip().splitlines()[0].strip() if md.strip() else ""
     return first[:80] if first else f"Post {now_utc_date()}"
 
 def ensure_min_chars(md: str) -> str:
@@ -298,7 +312,7 @@ Expand the article below to be at least {MIN_CHARS} characters.
 
 Rules:
 - Keep the same structure.
-- Add depth and practical details.
+- Add depth, examples, details, and practical steps.
 - Do not add fluff.
 
 Article:
@@ -322,12 +336,8 @@ def write_post_markdown(md: str, credits: List[str]) -> str:
 # Posts index
 # -----------------------------
 def load_posts_index() -> List[dict]:
-    raw = load_json(POSTS_JSON, [])
-    if isinstance(raw, list):
-        return [x for x in raw if isinstance(x, dict)]
-    if isinstance(raw, dict) and isinstance(raw.get("posts"), list):
-        return [x for x in raw["posts"] if isinstance(x, dict)]
-    return []
+    data = load_json(POSTS_JSON, [])
+    return data if isinstance(data, list) else []
 
 def save_posts_index(posts: List[dict]) -> None:
     save_json(POSTS_JSON, posts)
@@ -335,6 +345,10 @@ def save_posts_index(posts: List[dict]) -> None:
 def add_post_to_index(posts: List[dict], title: str, slug: str, category: str, image_paths: List[str]) -> None:
     today = now_utc_date()
     thumb = image_paths[0] if image_paths else ""
+
+    # ✅ 홈이 url 필드를 기대하는 경우가 많아서 항상 넣어줌
+    # (너 사이트가 html만 렌더링하면 여기만 바꿔주면 됨)
+    url = f"posts/{slug}.md"
 
     posts.insert(0, {
         "title": title,
@@ -345,38 +359,40 @@ def add_post_to_index(posts: List[dict], title: str, slug: str, category: str, i
         "updated": today,
         "thumbnail": thumb,
         "image": thumb,
+        "url": url,
+        "views": 0,
     })
 
-# -----------------------------
-# Keywords
-# -----------------------------
-def load_keywords_entries() -> List[dict]:
+def load_keywords() -> List[str]:
     data = load_json(KEYWORDS_JSON, [])
-    out: List[dict] = []
 
-    if isinstance(data, list):
-        for item in data:
-            if isinstance(item, str) and item.strip():
-                out.append({"keyword": item.strip()})
-            elif isinstance(item, dict) and isinstance(item.get("keyword"), str) and item["keyword"].strip():
-                out.append(item)
+    # 1) ["keyword", ...]
+    if isinstance(data, list) and data and isinstance(data[0], str):
+        return [x.strip() for x in data if isinstance(x, str) and x.strip()]
+
+    # 2) [{"keyword": "...", ...}, ...]
+    if isinstance(data, list) and data and isinstance(data[0], dict):
+        out = []
+        for it in data:
+            k = (it.get("keyword") or "").strip()
+            if k:
+                out.append(k)
         return out
 
+    # 3) {"keywords":[...]}
     if isinstance(data, dict):
-        ks = data.get("keywords")
+        ks = data.get("keywords") or []
         if isinstance(ks, list):
-            for item in ks:
-                if isinstance(item, str) and item.strip():
-                    out.append({"keyword": item.strip()})
-                elif isinstance(item, dict) and isinstance(item.get("keyword"), str) and item["keyword"].strip():
-                    out.append(item)
-        return out
+            return [x.strip() for x in ks if isinstance(x, str) and x.strip()]
 
-    return out
+    return []
 
+# -----------------------------
+# Main
+# -----------------------------
 def main() -> int:
-    keyword_entries = load_keywords_entries()
-    if not keyword_entries:
+    keywords = load_keywords()
+    if not keywords:
         print("No keywords.json or empty keywords.")
         return 0
 
@@ -388,20 +404,11 @@ def main() -> int:
 
     while made < POSTS_PER_RUN and tries < MAX_KEYWORD_TRIES:
         tries += 1
-        entry = random.choice(keyword_entries)
-        keyword = (entry.get("keyword") or "").strip()
+        keyword = random.choice(keywords).strip()
         if not keyword:
             continue
 
-        region = (entry.get("region") or "GLOBAL").strip()
-        category = (entry.get("category") or "").strip()
-        if not category:
-            category = pick_category_from_keyword_text(keyword)
-
-        title_hint = slugify(keyword)[:80] or f"post-{int(time.time())}"
-        slug = title_hint
-
-        prompt = build_prompt(keyword, region)
+        prompt = build_prompt(keyword)
         md = _openai_generate_text(prompt)
         md = ensure_min_chars(md)
 
@@ -414,12 +421,14 @@ def main() -> int:
         if slug in existing_slugs:
             slug = f"{slug}-{int(time.time())}"
 
-        image_paths, credits = get_high_quality_photos(slug, title, IMG_COUNT)
+        image_paths, credits = get_high_quality_photos(title, IMG_COUNT)
         if len(image_paths) < IMG_COUNT:
             print(f"Could not source enough high quality non-AI photos. Got {len(image_paths)}/{IMG_COUNT}")
             continue
 
+        category = pick_category(keyword)
         md_final = write_post_markdown(md, credits)
+
         md_path = POSTS_DIR / f"{slug}.md"
         safe_write(md_path, md_final)
 
