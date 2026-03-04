@@ -370,7 +370,7 @@ a:hover{text-decoration:underline}
   margin:0 auto;
 }
 
-/* 기본은 1컬럼 */
+/* 기본 */
 .post-header{padding:0}
 .post-h1{
   font-size:clamp(30px,4.8vw,54px);
@@ -409,10 +409,10 @@ a:hover{text-decoration:underline}
 }
 
 /* =========================
-   POST PAGE SIDEBAR (PC)
-   - HTML에 .post-main, .post-aside가 있으면 깔끔
-   - 없어도 본문은 정상 표시
+   POST PAGE SIDEBAR
    ========================= */
+
+/* PC: 본문 + 사이드바 */
 @media(min-width:980px){
   .post-shell.has-aside{
     display:grid;
@@ -467,22 +467,90 @@ a:hover{text-decoration:underline}
   .post-aside .cattext{display:grid;gap:2px;min-width:0}
   .post-aside .catname{font-weight:800;font-size:14px;line-height:1.2}
   .post-aside .catsub{font-size:12px;color:rgba(15,23,42,.60);line-height:1.2}
+
+  /* 본문 폭은 너무 넓지 않게 */
+  .post-shell.has-aside .post-main{
+    max-width:900px;
+  }
 }
 
-/* 모바일에서는 사이드바 숨김 */
+/* ✅ 모바일: 사이드바를 숨기지 말고 본문 아래로 내려서 표시 */
 @media(max-width:979px){
-  .post-aside{display:none !important;}
+  .post-shell.has-aside{
+    display:block;
+  }
+
+  .post-aside{
+    display:block !important;
+    position:static;
+    top:auto;
+    margin-top:18px;
+  }
+
+  .post-aside .sidecard{
+    background:#fff;
+    border:1px solid rgba(15,23,42,.10);
+    border-radius:16px;
+    padding:14px;
+    box-shadow:0 10px 24px rgba(15,23,42,.06);
+  }
+
+  .post-aside .sidecard h3{
+    margin:0 0 10px 0;
+    font-size:15px;
+    font-weight:850;
+  }
+
+  /* 모바일에서는 2열 카테고리 그리드로 */
+  .post-aside .catlist{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+  }
+
+  .post-aside .catitem{
+    display:flex;
+    gap:10px;
+    align-items:center;
+    padding:10px 12px;
+    border-radius:14px;
+    border:1px solid rgba(15,23,42,.10);
+    background:rgba(248,250,252,.95);
+    text-decoration:none;
+    color:inherit;
+  }
+
+  .post-aside .caticon{
+    width:34px;
+    height:34px;
+    border-radius:12px;
+    display:grid;
+    place-items:center;
+    background:rgba(37,99,235,.12);
+    flex:0 0 34px;
+  }
+
+  .post-aside .cattext{display:grid;gap:2px;min-width:0}
+  .post-aside .catname{font-weight:850;font-size:13px;line-height:1.2}
+  .post-aside .catsub{font-size:12px;color:rgba(15,23,42,.60);line-height:1.2}
 }
 
-/* ===== FORCE POST LAYOUT FIX ===== */
+@media(max-width:420px){
+  .post-aside .catlist{
+    grid-template-columns:1fr;
+  }
+}
 
-.post-page,
-.post-shell,
+/* ===== FORCE POST LAYOUT FIX (사이드바랑 충돌 안 나게 수정) ===== */
+
+/* 본문은 적당한 폭으로 */
 .post-content{
   max-width:900px;
   margin-left:auto;
   margin-right:auto;
 }
+
+/* 사이드바 있는 PC에서는 post-main만 900px로 제한 (위에서 이미 처리) */
 
 .post-hero img{
   width:100%;
@@ -497,19 +565,16 @@ a:hover{text-decoration:underline}
 
 /* 모바일 여백 */
 @media (max-width:768px){
-
   .container,
   .post-page,
   .post-content{
     padding-left:18px !important;
     padding-right:18px !important;
   }
-
 }
 
 /* ===== MOBILE NAV FIX ===== */
 @media (max-width:600px){
-
   .topbar-inner{
     flex-direction:row;
     align-items:center;
@@ -533,5 +598,4 @@ a:hover{text-decoration:underline}
     width:28px;
     height:28px;
   }
-
 }
