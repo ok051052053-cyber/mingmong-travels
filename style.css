@@ -561,3 +561,56 @@ a:hover{text-decoration:underline}
 @media (max-width: 979px){
   .post-aside{ display:none !important; }
 }
+
+/* =========================
+   Wider post layout (match topbar width)
+   ========================= */
+
+/* 1) 전체 사이트 컨테이너 폭을 조금 넓힘 */
+:root{
+  --max: 1280px;
+}
+
+/* 2) post 페이지에서만 "좁게 제한" 없애고 100% 사용 */
+.post-page{
+  width: 100%;
+}
+
+.post-page .post-shell{
+  width: 100%;
+  max-width: none;
+}
+
+/* 3) PC 2컬럼을 더 시원하게 */
+@media (min-width: 980px){
+  .post-page .post-shell{
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 360px;
+    gap: 32px;
+    align-items: start;
+  }
+
+  .post-page .post-main{
+    min-width: 0;
+  }
+
+  .post-page .post-aside{
+    position: sticky;
+    top: 96px;
+  }
+}
+
+/* 4) 모바일에서도 좌우 여백을 메뉴바 느낌으로 */
+@media (max-width: 979px){
+  .container{
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+}
+
+/* 5) 혹시 post-header만 따로 좁혀둔 규칙이 있으면 강제 해제 */
+.post-header,
+.post-content,
+.post-hero{
+  max-width: none;
+}
