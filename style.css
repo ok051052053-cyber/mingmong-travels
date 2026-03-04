@@ -465,3 +465,99 @@ a:hover{text-decoration:underline}
     overflow-wrap: anywhere;
   }
 }
+
+/* =========================
+   Post page sidebar (PC)
+   ========================= */
+
+@media (min-width: 980px){
+  /* 글 페이지: 2컬럼 */
+  .post-shell{
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 320px;
+    gap: 28px;
+    align-items: start;
+  }
+
+  /* 기존 구조가 꽉 차던 것 방지 */
+  .post-main{
+    min-width: 0;
+  }
+
+  /* 사이드바 */
+  .post-aside{
+    position: sticky;
+    top: 96px; /* 상단 메뉴바 아래 */
+    align-self: start;
+  }
+
+  .post-aside .sidecard{
+    background: rgba(255,255,255,.9);
+    border: 1px solid rgba(15,23,42,.10);
+    border-radius: 16px;
+    padding: 16px;
+    box-shadow: 0 10px 24px rgba(15,23,42,.06);
+  }
+
+  .post-aside .sidecard h3{
+    margin: 0 0 10px 0;
+    font-size: 16px;
+    font-weight: 800;
+  }
+
+  /* 카테고리 링크를 “홈 카드 느낌”으로 */
+  .post-aside .catlist{
+    display: grid;
+    gap: 10px;
+  }
+
+  .post-aside .catitem{
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    padding: 10px 12px;
+    border-radius: 14px;
+    border: 1px solid rgba(15,23,42,.10);
+    background: rgba(248,250,252,.9);
+    text-decoration: none;
+    color: inherit;
+  }
+
+  .post-aside .catitem:hover{
+    transform: translateY(-1px);
+    box-shadow: 0 10px 18px rgba(15,23,42,.08);
+  }
+
+  .post-aside .caticon{
+    width: 34px;
+    height: 34px;
+    border-radius: 12px;
+    display: grid;
+    place-items: center;
+    background: rgba(37,99,235,.12);
+    flex: 0 0 34px;
+  }
+
+  .post-aside .cattext{
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .post-aside .catname{
+    font-weight: 800;
+    font-size: 14px;
+    line-height: 1.2;
+  }
+
+  .post-aside .catsub{
+    font-size: 12px;
+    color: rgba(15,23,42,.60);
+    line-height: 1.2;
+  }
+}
+
+/* 모바일에서는 사이드바 숨김 */
+@media (max-width: 979px){
+  .post-aside{ display:none !important; }
+}
