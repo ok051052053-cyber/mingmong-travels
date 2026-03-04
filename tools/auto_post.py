@@ -7,11 +7,11 @@ import random
 import hashlib
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Optional, Set
 
 import requests
 from slugify import slugify
-from openai import OpenAI  # text only
+from openai import OpenAI
 
 # -----------------------------
 # Paths
@@ -33,36 +33,29 @@ POSTS_PER_RUN = int(os.environ.get("POSTS_PER_RUN", "3"))
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "").strip()
 MODEL = os.environ.get("MODEL", "gpt-4o-mini").strip()
 
-IMG_COUNT = int(os.environ.get("IMG_COUNT", "3"))  # total images per post (including hero)
+IMG_COUNT = int(os.environ.get("IMG_COUNT", "6"))  # 글 안 이미지 개수 (히어로 포함)
+MIN_CHARS = int(os.environ.get("MIN_CHARS", "2500"))
 
-BASE_MIN_CHARS = int(os.environ.get("MIN_CHARS", "2500"))
-TARGET_MIN_CHARS = BASE_MIN_CHARS * 2
+HTTP_TIMEOUT = 25
+IMAGE_PROVIDER = os.environ.get("IMAGE_PROVIDER", "wikimedia").strip().lower()
+IMAGE_MODEL = os.environ.get("IMAGE_MODEL", "gpt-image-1").strip()
 
-HTTP_TIMEOUT = int(os.environ.get("HTTP_TIMEOUT", "25"))
-
-# user ask: "1시간 걸려도 됨"
-IMAGE_SEARCH_BUDGET_SECONDS = int(os.environ.get("IMAGE_SEARCH_BUDGET_SECONDS", "3600"))
-
-# slow but safer for rate limits
-IMAGE_SEARCH_SLEEP_SECONDS = float(os.environ.get("IMAGE_SEARCH_SLEEP_SECONDS", "0.35"))
-
-# stronger quality bar
-MIN_IMG_BYTES = int(os.environ.get("MIN_IMG_BYTES", "60000"))  # ~60KB
-MIN_W = int(os.environ.get("MIN_W", "1400"))
-MIN_H = int(os.environ.get("MIN_H", "900"))
-
-# IMPORTANT: no AI images
-IMAGE_PROVIDER = "free_only"
+# 멈춤 방지
+HARD_DEADLINE_SECONDS = int(os.environ.get("HARD_DEADLINE_SECONDS", "720"))  # 12분
+OPENAI_MAX_TRIES = int(os.environ.get("OPENAI_MAX_TRIES", "4"))
 
 client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
 
-ALLOWED_CATEGORIES = {"AI Tools", "Make Money", "Productivity", "Reviews"}
+WIKI_API = "https://commons.wikimedia.org/w/api.php"
 
 # -----------------------------
 # Utils
 # -----------------------------
 def now_iso_datetime() -> str:
   return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+def esc(s: str) -> str:
+  return html.escape(s or "", quote=True)
 
 def safe_read_json(path: Path, default):
   try:
@@ -78,18 +71,14 @@ def safe_read_json(path: Path, default):
 def safe_write_json(path: Path, data):
   path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
-def esc(s: str) -> str:
-  return html.escape(s or "", quote=True)
+def sha256_bytes(b: bytes) -> str:
+  return hashlib.sha256(b).hexdigest()
 
 def strip_tags(s: str) -> str:
   s = re.sub(r"<script.*?>.*?</script>", "", s, flags=re.S | re.I)
   s = re.sub(r"<style.*?>.*?</style>", "", s, flags=re.S | re.I)
   s = re.sub(r"<[^>]+>", "", s)
   return html.unescape(s).strip()
-
-def sha256_bytes(b: bytes) -> str:
-  import hashlib as _h
-  return _h.sha256(b).hexdigest()
 
 def ensure_dirs(slug: str):
   POSTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -103,298 +92,96 @@ def normalize_img_path(pth: str) -> str:
     return s[:-4] + ".jpg"
   return s
 
-def clamp_category(cat: str) -> str:
-  c = (cat or "").strip()
-  if c in ALLOWED_CATEGORIES:
-    return c
-  low = c.lower()
-  if "money" in low or "income" in low or "side" in low:
-    return "Make Money"
-  if "review" in low or "price" in low or "alternat" in low:
-    return "Reviews"
-  if "productiv" in low or "workflow" in low:
-    return "Productivity"
-  return "AI Tools"
-
-def extract_json_object(s: str) -> Optional[dict]:
-  s = (s or "").strip()
-  if not s:
-    return None
-  try:
-    return json.loads(s)
-  except Exception:
-    pass
-  m = re.search(r"\{.*\}", s, flags=re.S)
-  if not m:
-    return None
-  blob = m.group(0).strip()
-  try:
-    return json.loads(blob)
-  except Exception:
-    return None
-
-def has_section(body_html: str, needle: str) -> bool:
-  return needle.lower() in strip_tags(body_html).lower()
-
-def ensure_core_sections(body_html: str) -> str:
-  add = []
-
-  if not has_section(body_html, "TL;DR"):
-    add.append(
-      "<h2>TL;DR</h2>"
-      "<ul>"
-      "<li>Pick one outcome then build a repeatable workflow</li>"
-      "<li>Use checklists and templates so results compound weekly</li>"
-      "<li>Track ROI using time saved and error rate</li>"
-      "</ul>"
-    )
-
-  if not has_section(body_html, "Scenario"):
-    add.append(
-      "<h2>Scenario</h2>"
-      "<p>You have a full time job and you want results you can verify. "
-      "Your constraint is time and focus not ideas.</p>"
-    )
-
-  if not has_section(body_html, "Workflow"):
-    add.append(
-      "<h2>Workflow</h2>"
-      "<ul>"
-      "<li>Step 1 (10 min): Collect 3 examples and define output format</li>"
-      "<li>Step 2 (15 min): Draft a template and run one test</li>"
-      "<li>Step 3 (10 min): Add a quality gate and revise once</li>"
-      "<li>Step 4 (5 min weekly): Reuse and improve one thing</li>"
-      "</ul>"
-    )
-
-  if not has_section(body_html, "Tool options"):
-    add.append(
-      "<h2>Tool options</h2>"
-      "<ul>"
-      "<li><strong>Free stack</strong>: best for testing and habits</li>"
-      "<li><strong>Paid single tool</strong>: best for daily speed</li>"
-      "<li><strong>Automation stack</strong>: best for scale after proof</li>"
-      "</ul>"
-    )
-
-  if "<table" not in body_html.lower():
-    add.append(
-      "<h2>Quick comparison</h2>"
-      "<table>"
-      "<thead><tr><th>Option</th><th>Best for</th><th>Cost</th><th>Gotcha</th></tr></thead>"
-      "<tbody>"
-      "<tr><td>Free plan</td><td>Proving the workflow</td><td>$0</td><td>Limits</td></tr>"
-      "<tr><td>Paid plan</td><td>Daily use</td><td>$10 to $30</td><td>Lock in</td></tr>"
-      "<tr><td>Automation</td><td>Scaling output</td><td>$20 to $80</td><td>Maintenance</td></tr>"
-      "</tbody>"
-      "</table>"
-    )
-
-  if not has_section(body_html, "Decision rules"):
-    add.append(
-      "<h2>Decision rules</h2>"
-      "<ul>"
-      "<li>If success is not 1 sentence then stop and define it</li>"
-      "<li>If repeatability matters then make a checklist first</li>"
-      "<li>If accuracy matters then add verification and evidence</li>"
-      "<li>If output is slow then simplify format before automation</li>"
-      "</ul>"
-    )
-
-  if not has_section(body_html, "Example walkthrough"):
-    add.append(
-      "<h2>Example walkthrough</h2>"
-      "<p>Pick one micro goal. Example: produce one publish ready outline in 20 minutes. "
-      "Run the template. Check against the checklist. Fix the biggest issue. Save it. Reuse it.</p>"
-    )
-
-  if not has_section(body_html, "Metrics"):
-    add.append(
-      "<h2>Metrics to track</h2>"
-      "<ul>"
-      "<li>Time to first usable draft (minutes)</li>"
-      "<li>Revision count (aim for 1)</li>"
-      "<li>Error rate (facts links formatting)</li>"
-      "<li>Cost per published piece (tools plus time)</li>"
-      "</ul>"
-    )
-
-  if not has_section(body_html, "FAQ"):
-    add.append(
-      "<h2>FAQ</h2>"
-      "<p><strong>How do I start fast?</strong> Start with one template and one checklist.</p>"
-      "<p><strong>When should I pay?</strong> When you use the workflow weekly.</p>"
-      "<p><strong>How do I reduce wrong info?</strong> Add verification and require evidence.</p>"
-      "<p><strong>How do I scale?</strong> Automate only after quality is stable.</p>"
-      "<p><strong>What if I get stuck?</strong> Shrink the scope and ship one small output.</p>"
-    )
-
-  if add:
-    body_html = body_html.strip() + "".join(add)
-
-  return body_html
+def deadline_guard(start_ts: float):
+  if time.time() - start_ts > HARD_DEADLINE_SECONDS:
+    raise SystemExit("Hard deadline reached. Exiting to prevent stuck workflow.")
 
 # -----------------------------
-# FREE image search sources
-#   1) Wikimedia Commons
-#   2) Openverse (CC)
+# Wikimedia
 # -----------------------------
-WIKI_API = "https://commons.wikimedia.org/w/api.php"
-OPENVERSE_API = "https://api.openverse.engineering/v1/images"
-
-def tokenize(s: str) -> List[str]:
-  s = (s or "").lower()
-  s = re.sub(r"[^a-z0-9\s\-]", " ", s)
-  parts = re.split(r"\s+", s)
-  out = []
-  for p in parts:
-    p = p.strip("- ").strip()
-    if not p:
-      continue
-    if len(p) <= 2:
-      continue
-    out.append(p)
-  return out
-
-def candidate_relevance_score(keyword: str, title: str, meta_text: str) -> int:
-  kt = tokenize(keyword)
-  if not kt:
-    return 0
-
-  hay = f"{title} {meta_text}".lower()
-  score = 0
-
-  for t in kt:
-    if t in hay:
-      score += 3
-
-  if keyword.lower().strip() and keyword.lower().strip() in hay:
-    score += 6
-
-  bad = [
-    "logo", "icon", "diagram", "clipart", "svg", "vector", "flag", "coat of arms",
-    "seal", "watermark", "meme", "screenshot", "poster"
-  ]
-  for b in bad:
-    if b in hay:
-      score -= 3
-
-  return score
-
-def wikimedia_search_candidates(keyword: str, query: str, limit: int = 50) -> List[Dict[str, str]]:
+def wikimedia_search_image_urls(query: str, limit: int = 40) -> List[str]:
   params = {
     "action": "query",
     "format": "json",
     "origin": "*",
     "generator": "search",
-    "gsrsearch": query,
+    "gsrsearch": f"filetype:bitmap {query}",
     "gsrlimit": str(limit),
     "gsrnamespace": "6",
     "prop": "imageinfo",
-    "iiprop": "url|size|extmetadata",
-    "iiextmetadatafilter": "ImageDescription|ObjectName|Categories|LicenseShortName|UsageTerms|Artist|Credit",
+    "iiprop": "url",
   }
   try:
     r = requests.get(WIKI_API, params=params, timeout=HTTP_TIMEOUT)
     r.raise_for_status()
     data = r.json()
     pages = (data.get("query") or {}).get("pages") or {}
-
-    out: List[Dict[str, str]] = []
+    out = []
     for _, page in pages.items():
-      title = str(page.get("title") or "")
       infos = page.get("imageinfo") or []
-      if not infos:
-        continue
-      ii = infos[0]
-      url = str(ii.get("url") or "")
-      if not url:
-        continue
-
-      width = int(ii.get("width") or 0)
-      height = int(ii.get("height") or 0)
-      if width < MIN_W or height < MIN_H:
-        continue
-
-      ext = ii.get("extmetadata") or {}
-      def get_meta(k: str) -> str:
-        v = ext.get(k) or {}
-        if isinstance(v, dict):
-          return str(v.get("value") or "")
-        return str(v or "")
-
-      meta_text = " ".join([
-        strip_tags(get_meta("ImageDescription")),
-        strip_tags(get_meta("ObjectName")),
-        strip_tags(get_meta("Categories")),
-        strip_tags(get_meta("LicenseShortName")),
-        strip_tags(get_meta("UsageTerms")),
-        strip_tags(get_meta("Artist")),
-        strip_tags(get_meta("Credit")),
-      ]).strip()
-
-      out.append({"url": url, "title": title, "meta": meta_text, "src": "wikimedia"})
-    return out
-  except Exception:
-    return []
-
-def openverse_search_candidates(keyword: str, query: str, limit: int = 50) -> List[Dict[str, str]]:
-  """
-  Openverse returns CC licensed content.
-  We filter to image with large size when possible.
-  """
-  params = {
-    "q": query,
-    "page_size": str(limit),
-    "mature": "false",
-    # allow common CC families including CC0
-    "license_type": "commercial,modification",  # conservative for ads use
-  }
-  try:
-    r = requests.get(OPENVERSE_API, params=params, timeout=HTTP_TIMEOUT, headers={"User-Agent": "mingmonglife-bot/1.0"})
-    r.raise_for_status()
-    data = r.json() or {}
-    results = data.get("results") or []
-    out: List[Dict[str, str]] = []
-
-    for it in results:
-      url = str(it.get("url") or "")
-      if not url:
-        continue
-      w = int(it.get("width") or 0)
-      h = int(it.get("height") or 0)
-      if w and h:
-        if w < MIN_W or h < MIN_H:
-          continue
-
-      title = str(it.get("title") or "")
-      meta_text = " ".join([
-        str(it.get("description") or ""),
-        str(it.get("tags") or ""),
-        str(it.get("creator") or ""),
-        str(it.get("license") or ""),
-        str(it.get("provider") or ""),
-        str(it.get("source") or ""),
-      ]).strip()
-
-      out.append({"url": url, "title": title, "meta": meta_text, "src": "openverse"})
+      if infos:
+        url = infos[0].get("url") or ""
+        if url:
+          out.append(url)
+    random.shuffle(out)
     return out
   except Exception:
     return []
 
 def download_image(url: str) -> Optional[bytes]:
   try:
-    r = requests.get(url, timeout=HTTP_TIMEOUT, headers={"User-Agent": "mingmonglife-bot/1.0"})
+    r = requests.get(url, timeout=HTTP_TIMEOUT)
     r.raise_for_status()
     ct = (r.headers.get("content-type") or "").lower()
     if "image" not in ct:
       return None
-    b = r.content
-    if not b or len(b) < MIN_IMG_BYTES:
-      return None
-    return b
+    return r.content
   except Exception:
     return None
+
+# -----------------------------
+# OpenAI helpers (재시도 + 타임아웃)
+# -----------------------------
+def openai_generate_image_bytes(prompt: str, start_ts: float) -> Optional[bytes]:
+  if not client:
+    return None
+
+  for t in range(OPENAI_MAX_TRIES):
+    deadline_guard(start_ts)
+    try:
+      res = client.images.generate(
+        model=IMAGE_MODEL,
+        prompt=prompt,
+        size="1024x1024",
+      )
+      b64 = res.data[0].b64_json
+      import base64
+      return base64.b64decode(b64)
+    except Exception:
+      time.sleep(1.5 + t * 1.2)
+      continue
+  return None
+
+def openai_json(prompt_system: str, prompt_user: str, start_ts: float) -> Optional[dict]:
+  if not client:
+    return None
+
+  for t in range(OPENAI_MAX_TRIES):
+    deadline_guard(start_ts)
+    try:
+      res = client.responses.create(
+        model=MODEL,
+        input=[
+          {"role": "system", "content": prompt_system},
+          {"role": "user", "content": prompt_user},
+        ],
+      )
+      txt = (res.output_text or "").strip()
+      return json.loads(txt)
+    except Exception:
+      time.sleep(1.5 + t * 1.2)
+      continue
+  return None
 
 # -----------------------------
 # Global image de-dup
@@ -408,374 +195,184 @@ def load_used_images() -> Set[str]:
 def save_used_images(s: Set[str]):
   safe_write_json(USED_IMAGES_JSON, sorted(list(s)))
 
-def bootstrap_used_images_from_assets():
-  used = load_used_images()
-  ASSETS_POSTS_DIR.mkdir(parents=True, exist_ok=True)
-
-  exts = {".jpg", ".jpeg", ".png", ".webp"}
-  changed = 0
-
-  for p in ASSETS_POSTS_DIR.rglob("*"):
-    if not p.is_file():
-      continue
-    if p.suffix.lower() not in exts:
-      continue
-    try:
-      b = p.read_bytes()
-      h = sha256_bytes(b)
-      if h not in used:
-        used.add(h)
-        changed += 1
-    except Exception:
-      continue
-
-  if changed:
-    save_used_images(used)
-
-# -----------------------------
-# Query expansion for "deeply related" images
-# -----------------------------
-def expand_image_queries(keyword: str) -> List[str]:
-  """
-  No AI needed.
-  Heuristic expansions.
-  Also include a few structure patterns for tools topics.
-  """
-  k = keyword.strip()
-  low = k.lower()
-
-  base = [k]
-
-  # add common photo intent words
-  base += [
-    f"{k} photo",
-    f"{k} realistic photo",
-    f"{k} in office",
-    f"{k} at work",
-    f"{k} laptop",
-    f"{k} desk",
-  ]
-
-  # reduce too abstract queries
-  if any(x in low for x in ["ai", "chatgpt", "automation", "workflow", "productivity"]):
-    base += [
-      "person using laptop in office",
-      "team meeting in office laptop",
-      "remote work laptop coffee",
-      "notebook planning desk",
-      "business analytics dashboard laptop",
-    ]
-
-  if any(x in low for x in ["make money", "side hustle", "freelance", "income"]):
-    base += [
-      "freelancer working laptop",
-      "online business laptop desk",
-      "invoice paperwork desk",
-      "home office workspace",
-    ]
-
-  if any(x in low for x in ["review", "pricing", "comparison", "alternatives"]):
-    base += [
-      "product comparison table",
-      "shopping decision laptop",
-      "price tag retail shelf",
-    ]
-
-  # de-dup while preserving order
-  seen = set()
-  out = []
-  for q in base:
-    qq = " ".join(q.split()).strip()
-    if not qq:
-      continue
-    if qq.lower() in seen:
-      continue
-    seen.add(qq.lower())
-    out.append(qq)
-  return out
-
-def pick_unique_images_for_post(keyword: str, slug: str, count: int) -> List[str]:
-  """
-  1 hour budget
-  Must be FREE
-  Must be strongly relevant
-  Must never repeat across site
-  Sources:
-    Wikimedia + Openverse
-  """
+def pick_unique_images_for_post(keyword: str, slug: str, count: int, start_ts: float) -> List[str]:
   ensure_dirs(slug)
 
   used_global = load_used_images()
   used_in_post: Set[str] = set()
   saved_paths: List[str] = []
 
-  start = time.time()
-  budget = max(60, IMAGE_SEARCH_BUDGET_SECONDS)
+  candidates: List[str] = []
+  if IMAGE_PROVIDER in ("wikimedia", "auto", "hybrid"):
+    q = f"{keyword} modern minimal realistic photo"
+    candidates = wikimedia_search_image_urls(q, limit=60)
 
-  queries = expand_image_queries(keyword)
+  attempts = 0
+  while len(saved_paths) < count and attempts < 220:
+    attempts += 1
+    deadline_guard(start_ts)
 
-  # strict then loosen a bit but still related
-  strict_min_score = 7
-  loose_min_score = 4
+    img_bytes = None
+    img_hash = None
 
-  # search loop
-  round_i = 0
-  while len(saved_paths) < count and (time.time() - start) < budget:
-    round_i += 1
-
-    # rotate queries
-    q = queries[(round_i - 1) % len(queries)]
-
-    # build source queries
-    # wikimedia supports filetype:bitmap
-    wiki_q = f'filetype:bitmap "{q}"'
-    wiki_q2 = f'filetype:bitmap {q} photo'
-    wiki_q3 = f'filetype:bitmap {q}'
-
-    # collect candidates
-    cands: List[Dict[str, str]] = []
-    cands += wikimedia_search_candidates(keyword, wiki_q, limit=50)
-    time.sleep(IMAGE_SEARCH_SLEEP_SECONDS)
-    cands += wikimedia_search_candidates(keyword, wiki_q2, limit=50)
-    time.sleep(IMAGE_SEARCH_SLEEP_SECONDS)
-    cands += wikimedia_search_candidates(keyword, wiki_q3, limit=50)
-    time.sleep(IMAGE_SEARCH_SLEEP_SECONDS)
-
-    cands += openverse_search_candidates(keyword, q, limit=50)
-    time.sleep(IMAGE_SEARCH_SLEEP_SECONDS)
-
-    # score and sort
-    scored: List[Tuple[int, Dict[str, str]]] = []
-    for c in cands:
-      s = candidate_relevance_score(keyword, c.get("title", ""), c.get("meta", ""))
-      scored.append((s, c))
-    scored.sort(key=lambda x: x[0], reverse=True)
-
-    # try strict first then loose
-    for min_score in (strict_min_score, loose_min_score):
-      for s, c in scored:
-        if len(saved_paths) >= count:
-          break
-        if s < min_score:
-          break
-
-        url = c.get("url") or ""
-        if not url:
-          continue
-
-        b = download_image(url)
-        time.sleep(IMAGE_SEARCH_SLEEP_SECONDS)
-        if not b:
-          continue
-
+    # 1) try wikimedia
+    url = candidates.pop() if candidates else None
+    if url:
+      b = download_image(url)
+      if b:
         h = sha256_bytes(b)
-        if h in used_global or h in used_in_post:
-          continue
+        if h not in used_global and h not in used_in_post:
+          img_bytes = b
+          img_hash = h
 
-        idx = len(saved_paths) + 1
-        out_file = ASSETS_POSTS_DIR / slug / f"{idx}.jpg"
-        out_file.write_bytes(b)
+    # 2) fallback openai image
+    if img_bytes is None:
+      uniq = hashlib.sha1(f"{slug}-{len(saved_paths)}-{time.time()}-{random.random()}".encode()).hexdigest()[:12]
+      prompt = (
+        f"High quality realistic photo for a blog post about: {keyword}. "
+        f"Clean composition, professional lighting, no text, no logos, no watermarks. "
+        f"Unique variation token: {uniq}."
+      )
+      b = openai_generate_image_bytes(prompt, start_ts)
+      if not b:
+        continue
+      h = sha256_bytes(b)
+      if h in used_global or h in used_in_post:
+        continue
+      img_bytes = b
+      img_hash = h
 
-        used_in_post.add(h)
-        used_global.add(h)
-        saved_paths.append(f"assets/posts/{slug}/{idx}.jpg")
+    idx = len(saved_paths) + 1
+    out_file = ASSETS_POSTS_DIR / slug / f"{idx}.jpg"
+    out_file.write_bytes(img_bytes)
 
-      if len(saved_paths) >= count:
-        break
-
-    # if nothing found for a while, slightly relax size constraints by 10% near end of budget
-    if (time.time() - start) > (budget * 0.75) and len(saved_paths) == 0:
-      # last resort, still no AI, still relevance gated
-      global MIN_W, MIN_H, MIN_IMG_BYTES
-      MIN_W = max(900, int(MIN_W * 0.9))
-      MIN_H = max(600, int(MIN_H * 0.9))
-      MIN_IMG_BYTES = max(35000, int(MIN_IMG_BYTES * 0.8))
+    used_in_post.add(img_hash)
+    used_global.add(img_hash)
+    saved_paths.append(f"assets/posts/{slug}/{idx}.jpg")
 
   save_used_images(used_global)
+
+  if len(saved_paths) < count:
+    raise SystemExit("Could not collect enough unique images within limits.")
+
   return saved_paths
 
 # -----------------------------
-# LLM content generation (longer + deeper)
+# LLM content: 6개 섹션 균등 분배
 # -----------------------------
-def llm_generate_article(keyword: str) -> Dict[str, str]:
+def llm_generate_sections(keyword: str, sections: int, start_ts: float) -> Dict[str, object]:
+  """
+  Return:
+    title, description, category, sections(list[str])
+  Each section should be similar length.
+  Total visible chars >= MIN_CHARS.
+  """
+  # fallback
   if not client:
     title = keyword.title()
     desc = f"A practical guide about {keyword}."
     cat = "AI Tools"
-    body = (
-      "<h2>TL;DR</h2>"
-      "<ul><li>Pick one workflow and reuse it weekly</li><li>Measure time saved</li><li>Upgrade only if ROI is clear</li></ul>"
-      "<h2>Scenario</h2><p>You work 9 to 6 and need results fast with low budget.</p>"
-      "<h2>Workflow</h2><ul><li>Define outcome</li><li>Pick tools</li><li>Run checklist</li><li>Store template</li></ul>"
-      "<h2>Quick comparison</h2>"
-      "<table><thead><tr><th>Option</th><th>Best for</th><th>Cost</th><th>Gotcha</th></tr></thead>"
-      "<tbody><tr><td>Free</td><td>Testing</td><td>$0</td><td>Limits</td></tr>"
-      "<tr><td>Paid</td><td>Daily</td><td>$10 to $30</td><td>Lock in</td></tr>"
-      "<tr><td>Automation</td><td>Scale</td><td>$20 to $80</td><td>Maintenance</td></tr></tbody></table>"
-      "<h2>Templates</h2><p>Role Goal Context Output Quality rules</p>"
-      "<h2>FAQ</h2><p>Start small then scale.</p>"
-    )
-    body = ensure_core_sections(body)
-    while len(strip_tags(body)) < TARGET_MIN_CHARS:
-      body += f"<p>{esc(desc)} {esc(desc)} {esc(desc)}</p>"
-    return {"title": title, "description": desc, "category": cat, "body": body}
+    base = (desc + " ") * 80
+    per = max(1, len(base) // sections)
+    sec = [base[i*per:(i+1)*per].strip() for i in range(sections)]
+    while len("".join(sec)) < MIN_CHARS:
+      sec = [s + " " + desc * 3 for s in sec]
+    return {"title": title, "description": desc, "category": cat, "sections": sec}
 
   sys = (
-    "You are a senior editor for a practical blog for young professionals in the US and Europe. "
-    "Write content that is specific and actionable. "
-    "No fluff. No generic definitions. "
-    "Use concrete numbers, tradeoffs, and realistic constraints. "
-    "Write in natural American English. "
-    "Short paragraphs. "
-    "Do not mention being an AI. "
-    "Use only these HTML tags inside body_html: <h2>, <p>, <ul>, <li>, <table>, <thead>, <tbody>, <tr>, <th>, <td>, <strong>. "
-    "Do not include outer <html>."
+    "You write SEO-friendly helpful blog content for young professionals in the US and Europe. "
+    "No fluff. Clear structure. Practical steps. Natural English. "
+    "Do not mention that you are an AI."
   )
 
+  target_per = max(350, MIN_CHARS // max(1, sections))
   user = (
-    f"Topic keyword: {keyword}\n\n"
-    "Return ONLY valid JSON with keys:\n"
-    "title\n"
-    "description\n"
-    "category (one of: AI Tools, Make Money, Productivity, Reviews)\n"
-    "body_html\n\n"
-    "Rules for body_html:\n"
-    f"- Visible text length at least {TARGET_MIN_CHARS} characters\n"
-    "- Start with <h2>TL;DR</h2> then a <ul> with 3 to 5 bullets\n"
-    "- Include <h2>Scenario</h2> with a specific persona and constraints\n"
-    "- Include <h2>Workflow</h2> with step by step bullets and time estimates\n"
-    "- Include <h2>Tool options</h2> with 3 options and when to choose each\n"
-    "- Include <h2>Quick comparison</h2> and a HTML table with at least 3 rows and columns: Option, Best for, Cost, Gotcha\n"
-    "- Include <h2>Decision rules</h2>\n"
-    "- Include <h2>Example walkthrough</h2>\n"
-    "- Include <h2>Common mistakes</h2> with 7 to 10 bullets\n"
-    "- Include <h2>Templates</h2> with at least 3 copy ready templates or checklists\n"
-    "- Include <h2>Metrics to track</h2>\n"
-    "- Include <h2>FAQ</h2> with 5 questions and answers\n"
-    "- Use numbers where reasonable\n"
-    "- Avoid vague claims\n\n"
-    "Important:\n"
-    "- Do not include markdown fences\n"
-    "- Do not include any keys besides the four keys\n"
-    "- body_html must be HTML only\n"
+    f"Write one blog post about: {keyword}\n"
+    "Return JSON with keys:\n"
+    "title (string), description (string), category (one of: AI Tools, Make Money, Productivity, Reviews),\n"
+    f"sections (array of exactly {sections} strings).\n"
+    f"Constraints:\n"
+    f"- Total visible text length across all sections >= {MIN_CHARS} characters\n"
+    f"- Each section should be roughly similar length (~{target_per} chars each)\n"
+    "- No markdown. Plain text inside each section.\n"
   )
 
-  res = client.responses.create(
-    model=MODEL,
-    input=[
-      {"role": "system", "content": sys},
-      {"role": "user", "content": user},
-    ],
-  )
-
-  txt = (res.output_text or "").strip()
-  data = extract_json_object(txt) or {}
-
+  data = openai_json(sys, user, start_ts) or {}
   title = str(data.get("title", "")).strip() or keyword.title()
   description = str(data.get("description", "")).strip() or f"A practical guide about {keyword}."
-  category = clamp_category(str(data.get("category", "AI Tools")))
-  body = str(data.get("body_html", "")).strip() or "<p></p>"
+  category = str(data.get("category", "")).strip() or "AI Tools"
+  secs = data.get("sections") or []
 
-  if len(strip_tags(body)) < TARGET_MIN_CHARS:
+  if not isinstance(secs, list) or len(secs) != sections:
+    secs = []
+
+  secs = [str(x).strip() for x in secs if str(x).strip()]
+  if len(secs) != sections:
+    # 2nd try: expand / fix
     user2 = (
-      f"Improve and expand the article HTML below to reach at least {TARGET_MIN_CHARS} visible characters. "
-      "Add numbers, examples, constraints, and checklists. "
-      "Return ONLY valid JSON with one key: body_html.\n\n"
-      f"ARTICLE_HTML:\n{body}"
+      f"Fix output to valid JSON with exactly {sections} sections.\n"
+      f"Topic: {keyword}\n"
+      f"Total chars >= {MIN_CHARS}. Similar length per section."
     )
-    res2 = client.responses.create(
-      model=MODEL,
-      input=[
-        {"role": "system", "content": sys},
-        {"role": "user", "content": user2},
-      ],
-    )
-    t2 = (res2.output_text or "").strip()
-    d2 = extract_json_object(t2) or {}
-    body2 = str(d2.get("body_html", "")).strip()
-    if body2:
-      body = body2
+    data2 = openai_json(sys, user2, start_ts) or {}
+    secs2 = data2.get("sections") or []
+    if isinstance(secs2, list) and len(secs2) == sections:
+      secs = [str(x).strip() for x in secs2]
 
-  body = ensure_core_sections(body)
+  # final pad
+  joined = "".join(secs)
+  while len(joined) < MIN_CHARS:
+    secs = [s + "\n\n" + description for s in secs]
+    joined = "".join(secs)
 
-  while len(strip_tags(body)) < TARGET_MIN_CHARS:
-    body += f"<p>{esc(description)} {esc(description)} {esc(description)}</p>"
+  return {"title": title, "description": description, "category": category, "sections": secs}
 
-  return {"title": title, "description": description, "category": category, "body": body}
-
-# -----------------------------
-# Evenly distribute images in body
-# -----------------------------
-def inject_images_evenly(body_html: str, image_paths: List[str], title: str) -> str:
-  extras = image_paths[1:] if len(image_paths) > 1 else []
-  if not extras:
-    return body_html
-
-  blocks = re.split(r"(?i)(</p>\s*|</ul>\s*|</ol>\s*|</h2>\s*|</table>\s*)", body_html)
-  units: List[str] = []
-  buf = ""
-  for part in blocks:
-    buf += part
-    if re.search(r"(?i)</p>\s*$|</ul>\s*$|</ol>\s*$|</h2>\s*$|</table>\s*$", buf.strip()):
-      units.append(buf)
-      buf = ""
-  if buf.strip():
-    units.append(buf)
-
-  if len(units) <= 1:
-    out = body_html
-    for img in extras:
-      out += f'<img src="../{esc(img)}" alt="{esc(title)}" loading="lazy">'
-    return out
-
-  n = len(units)
-  m = len(extras)
-
-  positions = []
-  for i in range(1, m + 1):
-    pos = round(i * n / (m + 1))
-    pos = min(max(pos, 1), n - 1)
-    positions.append(pos)
-
-  positions = sorted(set(positions))
-  p = 1
-  while len(positions) < m and p < n:
-    if p not in positions and p != 0 and p != n:
-      positions.append(p)
-    p += 1
-  positions = sorted(positions)[:m]
-
-  out_units: List[str] = []
-  img_i = 0
-  for idx, u in enumerate(units):
-    out_units.append(u)
-    if img_i < m and idx in positions:
-      out_units.append(f'<img src="../{esc(extras[img_i])}" alt="{esc(title)}" loading="lazy">')
-      img_i += 1
-
-  while img_i < m:
-    out_units.append(f'<img src="../{esc(extras[img_i])}" alt="{esc(title)}" loading="lazy">')
-    img_i += 1
-
-  return "".join(out_units)
+def sections_to_html(sections: List[str]) -> str:
+  # 간단 규칙: 각 섹션 첫 줄을 h2, 나머지 p로
+  out = []
+  for i, s in enumerate(sections, start=1):
+    lines = [ln.strip() for ln in s.splitlines() if ln.strip()]
+    if not lines:
+      continue
+    h = esc(lines[0])
+    out.append(f"<h2>{h}</h2>")
+    rest = lines[1:] if len(lines) > 1 else []
+    if not rest:
+      out.append("<p></p>")
+    else:
+      # 2~4문장씩 끊기
+      buf = []
+      for ln in rest:
+        buf.append(esc(ln))
+        if len(buf) >= 3:
+          out.append("<p>" + " ".join(buf) + "</p>")
+          buf = []
+      if buf:
+        out.append("<p>" + " ".join(buf) + "</p>")
+  return "".join(out)
 
 # -----------------------------
-# Build post html with SEO meta
+# Build post html + PC sidebar
 # -----------------------------
-def build_post_html(
-  site_name: str,
-  title: str,
-  description: str,
-  category: str,
-  date_iso: str,
-  slug: str,
-  images: List[str],
-  body_html: str
-) -> str:
+def build_post_html(site_name: str, title: str, description: str, category: str, date_iso: str, slug: str, images: List[str], body_html: str) -> str:
   hero_img = images[0] if images else ""
   canonical = f"{SITE_URL}/posts/{slug}.html"
 
-  body_html = inject_images_evenly(body_html, images, title)
+  # body 내부에 이미지 균등 삽입 (섹션 사이)
+  # sections 개수 = IMG_COUNT 이면
+  # hero + (섹션사이 이미지 IMG_COUNT-1) 형태
+  extras = images[1:]
+  if extras:
+    # h2 단위로 split 해서 h2 뒤에 하나씩 삽입
+    parts = re.split(r"(?i)(<h2>.*?</h2>)", body_html)
+    out = []
+    img_i = 0
+    for chunk in parts:
+      out.append(chunk)
+      if img_i < len(extras) and re.match(r"(?i)<h2>.*?</h2>", chunk or ""):
+        out.append(f'<img src="../{esc(extras[img_i])}" alt="{esc(title)}" loading="lazy">')
+        img_i += 1
+    body_html = "".join(out)
 
   json_ld = {
     "@context": "https://schema.org",
@@ -793,6 +390,73 @@ def build_post_html(
 
   og_image = f"{SITE_URL}/{hero_img}" if hero_img else f"{SITE_URL}/assets/og-default.jpg"
 
+  # PC 사이드바에 홈의 Browse by focus 카드형 넣기
+  aside_html = """
+  <aside class="post-aside">
+    <div class="sidecard">
+      <h3>Browse by focus</h3>
+      <div class="catlist">
+        <a class="catitem" href="../category.html?cat=AI%20Tools">
+          <div class="caticon">🤖</div>
+          <div class="cattext">
+            <div class="catname">AI Tools</div>
+            <div class="catsub">ChatGPT, Claude, Notion AI, automation</div>
+          </div>
+        </a>
+        <a class="catitem" href="../category.html?cat=Make%20Money">
+          <div class="caticon">💸</div>
+          <div class="cattext">
+            <div class="catname">Make Money</div>
+            <div class="catsub">Side hustles, freelancing, remote income</div>
+          </div>
+        </a>
+        <a class="catitem" href="../category.html?cat=Productivity">
+          <div class="caticon">⚡</div>
+          <div class="cattext">
+            <div class="catname">Productivity</div>
+            <div class="catsub">Workflows, systems, checklists</div>
+          </div>
+        </a>
+        <a class="catitem" href="../category.html?cat=Reviews">
+          <div class="caticon">🧾</div>
+          <div class="cattext">
+            <div class="catname">Reviews</div>
+            <div class="catsub">Pricing, comparisons, alternatives</div>
+          </div>
+        </a>
+      </div>
+    </div>
+
+    <div class="sidecard" style="margin-top:12px;">
+      <h3>Popular picks</h3>
+      <div id="popular-picks"></div>
+      <div class="tiny-note">Auto selected from your newest posts.</div>
+    </div>
+
+    <script>
+      (function(){
+        fetch("../posts.json?v=1")
+          .then(r => r.json())
+          .then(posts => {
+            posts = Array.isArray(posts) ? posts : [];
+            posts.sort((a,b) => new Date(b.date||0) - new Date(a.date||0));
+            const box = document.getElementById("popular-picks");
+            if(!box) return;
+            const top = posts.slice(0,3);
+            top.forEach(p => {
+              const a = document.createElement("a");
+              a.className = "hot-link";
+              a.href = "../" + (p.url || "");
+              a.textContent = p.title || "Post";
+              box.appendChild(a);
+            });
+          })
+          .catch(()=>{});
+      })();
+    </script>
+  </aside>
+  """
+
   return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -803,7 +467,7 @@ def build_post_html(
   <link rel="canonical" href="{esc(canonical)}" />
 
   <meta property="og:type" content="article" />
-  <meta property="og:site_name" content="{esc(site_name)}</meta>
+  <meta property="og:site_name" content="{esc(site_name)}" />
   <meta property="og:title" content="{esc(title)}" />
   <meta property="og:description" content="{esc(description)}" />
   <meta property="og:url" content="{esc(canonical)}" />
@@ -814,7 +478,7 @@ def build_post_html(
   <meta name="twitter:description" content="{esc(description)}" />
   <meta name="twitter:image" content="{esc(og_image)}" />
 
-  <link rel="stylesheet" href="../style.css?v=1001" />
+  <link rel="stylesheet" href="../style.css?v=2001" />
   <script type="application/ld+json">{json.dumps(json_ld, ensure_ascii=False)}</script>
 </head>
 <body>
@@ -835,8 +499,8 @@ def build_post_html(
 
 <main class="container post-page">
   <div class="post-shell">
-
     <div class="post-main">
+
       <header class="post-header">
         <div class="kicker">{esc(category)}</div>
         <h1 class="post-h1">{esc(title)}</h1>
@@ -852,47 +516,10 @@ def build_post_html(
       <article class="post-content">
         {body_html}
       </article>
+
     </div>
 
-    <aside class="post-aside" aria-label="Sidebar">
-      <div class="sidecard">
-        <h3>Browse by focus</h3>
-
-        <div class="catlist">
-          <a class="catitem" href="../category.html?cat=AI%20Tools">
-            <span class="caticon">🤖</span>
-            <span class="cattext">
-              <span class="catname">AI Tools</span>
-              <span class="catsub">ChatGPT, Claude, Notion AI, automation</span>
-            </span>
-          </a>
-
-          <a class="catitem" href="../category.html?cat=Make%20Money">
-            <span class="caticon">💸</span>
-            <span class="cattext">
-              <span class="catname">Make Money</span>
-              <span class="catsub">Side hustles, freelancing, remote income</span>
-            </span>
-          </a>
-
-          <a class="catitem" href="../category.html?cat=Productivity">
-            <span class="caticon">⚡</span>
-            <span class="cattext">
-              <span class="catname">Productivity</span>
-              <span class="catsub">Workflows, systems, checklists</span>
-            </span>
-          </a>
-
-          <a class="catitem" href="../category.html?cat=Reviews">
-            <span class="caticon">🧾</span>
-            <span class="cattext">
-              <span class="catname">Reviews</span>
-              <span class="catsub">Pricing, comparisons, alternatives</span>
-            </span>
-          </a>
-        </div>
-      </div>
-    </aside>
+    {aside_html}
 
   </div>
 </main>
@@ -942,11 +569,10 @@ def load_keywords() -> List[str]:
   return out
 
 def main():
+  start_ts = time.time()
+
   POSTS_DIR.mkdir(parents=True, exist_ok=True)
   ASSETS_POSTS_DIR.mkdir(parents=True, exist_ok=True)
-
-  # hard guarantee: never reuse any existing site image
-  bootstrap_used_images_from_assets()
 
   posts = safe_read_json(POSTS_JSON, [])
   if not isinstance(posts, list):
@@ -960,8 +586,10 @@ def main():
 
   made = 0
   tries = 0
-  while made < POSTS_PER_RUN and tries < POSTS_PER_RUN * 12:
+  while made < POSTS_PER_RUN and tries < POSTS_PER_RUN * 10:
     tries += 1
+    deadline_guard(start_ts)
+
     keyword = random.choice(keywords).strip()
     if not keyword:
       continue
@@ -970,34 +598,32 @@ def main():
     if not slug or slug in existing_slugs:
       continue
 
-    art = llm_generate_article(keyword)
-    title = art["title"]
-    description = art["description"]
-    category = clamp_category(art["category"])
-    body = art["body"]
+    # 1) 글 섹션 생성 (IMG_COUNT에 맞춤)
+    art = llm_generate_sections(keyword, sections=max(2, IMG_COUNT), start_ts=start_ts)
+    title = str(art["title"])
+    description = str(art["description"])
+    category = str(art["category"])
+    sections = art["sections"]
+    body_html = sections_to_html(sections)
+
+    # 2) 이미지 생성 (히어로 포함 IMG_COUNT)
+    images = pick_unique_images_for_post(keyword, slug, max(1, IMG_COUNT), start_ts)
+
+    # 3) HTML 작성
     date_iso = now_iso_datetime()
+    html_doc = build_post_html(SITE_NAME, title, description, category, date_iso, slug, images, body_html)
 
-    images = pick_unique_images_for_post(keyword, slug, max(1, IMG_COUNT))
-
-    # strict: if no good free images, do not publish a post
-    if not images:
-      print(f"Skip (no high quality related free images within budget): {slug}")
-      continue
-
-    html_doc = build_post_html(SITE_NAME, title, description, category, date_iso, slug, images, body)
     out_path = POSTS_DIR / f"{slug}.html"
     out_path.write_text(html_doc, encoding="utf-8")
-
-    thumb = normalize_img_path(images[0]) if images else f"assets/posts/{slug}/1.jpg"
 
     post_obj = {
       "title": title,
       "description": description,
       "category": category,
-      "date": date_iso,
+      "date": date_iso,  # ISO datetime
       "slug": slug,
-      "thumbnail": thumb,
-      "image": thumb,
+      "thumbnail": normalize_img_path(images[0]) if images else f"assets/posts/{slug}/1.jpg",
+      "image": normalize_img_path(images[0]) if images else f"assets/posts/{slug}/1.jpg",
       "url": f"posts/{slug}.html",
     }
 
@@ -1007,6 +633,8 @@ def main():
     existing_slugs.add(slug)
     made += 1
     print(f"Generated: {slug}")
+
+  print(f"Done. Created {made} posts.")
 
 if __name__ == "__main__":
   main()
