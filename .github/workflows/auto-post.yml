@@ -8,10 +8,6 @@ on:
 permissions:
   contents: write
 
-concurrency:
-  group: auto-post
-  cancel-in-progress: true
-
 jobs:
   post:
     runs-on: ubuntu-latest
@@ -25,7 +21,6 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-          cache: "pip"
 
       - name: Install deps
         run: |
@@ -38,11 +33,15 @@ jobs:
           SITE_NAME: MingMong
           SITE_URL: https://mingmonglife.com
           POSTS_PER_RUN: "1"
-          IMG_COUNT: "6"
+          IMG_COUNT: "4"
           MIN_CHARS: "2500"
-          IMAGE_PROVIDER: "wikimedia"
-          IMAGE_MODEL: "gpt-image-1"
-          MODEL: "gpt-4o-mini"
+          HTTP_TIMEOUT: "25"
+          MIN_IMG_LONG_EDGE: "1400"
+          MIN_IMG_BYTES: "120000"
+          MAX_IMG_ASPECT: "2.2"
+          WIKI_CANDIDATES: "70"
+          MAX_KEYWORD_ATTEMPTS: "18"
+          MODEL: gpt-4o-mini
         run: |
           python tools/auto_post.py
 
@@ -51,6 +50,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -A
-          git diff --cached --quiet && echo "No changes to commit" && exit 0
-          git commit -m "Auto post"
+          git commit -m "Auto post" || echo "No changes to commit"
           git push
