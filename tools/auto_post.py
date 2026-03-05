@@ -34,10 +34,11 @@ POSTS_PER_RUN = int(os.environ.get("POSTS_PER_RUN", "1"))
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "").strip()
 MODEL = os.environ.get("MODEL", "gpt-4o-mini").strip()
 
-MIN_CHARS = int(os.environ.get("MIN_CHARS", "2800"))
+# ✅ 기본 3000자로 상향
+MIN_CHARS = int(os.environ.get("MIN_CHARS", "3000"))
 
-# ✅ 무조건 5장 고정 (환경변수로 바꿔도 5로 강제)
-IMG_COUNT = 5
+# ✅ 무조건 7장 고정
+IMG_COUNT = 7
 
 MAX_KEYWORD_TRIES = int(os.environ.get("MAX_KEYWORD_TRIES", "12"))
 
@@ -252,7 +253,7 @@ def download_unsplash_photo(item: dict, out_path: Path) -> None:
 
 def get_high_quality_photos_for_queries(slug: str, queries: List[str]) -> Tuple[List[str], List[str]]:
     """
-    ✅ 이미지 5장
+    ✅ 이미지 7장
     ✅ 각 이미지마다 query를 따로 사용해서 관련성 올림
     ✅ AI 이미지 절대 없음
     """
@@ -315,9 +316,10 @@ def get_high_quality_photos_for_queries(slug: str, queries: List[str]) -> Tuple[
 # -----------------------------
 def build_prompt(keyword: str) -> str:
     """
-    ✅ 5개 청크 분량 비슷
-    ✅ 각 청크마다 이미지 검색 키워드 제공
-    ✅ 섹션 내용이 이미지랑 연결되게
+    ✅ 7개 섹션
+    ✅ 섹션 분량 비슷
+    ✅ 각 섹션마다 이미지 검색 키워드 제공
+    ✅ 섹션 내용이 이미지랑 연결
     """
     return f"""
 You are writing for US and EU readers.
@@ -339,7 +341,7 @@ JSON schema:
       "image_query": "string (2-6 words, concrete photo idea)",
       "body": "string (plain text, multiple paragraphs with blank lines)"
     }},
-    ... total 5 sections
+    ... total 7 sections
   ],
   "faq": [
     {{"q":"string","a":"string"}},
@@ -349,7 +351,7 @@ JSON schema:
 }}
 
 Hard rules:
-- Exactly 5 sections.
+- Exactly 7 sections.
 - Make section body lengths roughly equal.
 - Total combined text length (tldr + sections + faq answers) must be at least {MIN_CHARS} characters.
 - Avoid fluff.
@@ -371,8 +373,8 @@ def parse_post_json(text: str) -> Dict[str, Any]:
     cat = _clean_text(data.get("category", ""))
 
     sections = data.get("sections")
-    if not isinstance(sections, list) or len(sections) != 5:
-        raise ValueError("sections must be list of 5")
+    if not isinstance(sections, list) or len(sections) != IMG_COUNT:
+        raise ValueError(f"sections must be list of {IMG_COUNT}")
 
     clean_sections = []
     for s in sections:
@@ -398,12 +400,13 @@ def parse_post_json(text: str) -> Dict[str, Any]:
     tldr = _clean_text(data.get("tldr", ""))
 
     if cat not in {"AI Tools", "Make Money", "Productivity", "Reviews"}:
-        # fallback to keyword-based category
         cat = pick_category(title or "")
 
-    # 최소 길이 체크
-    total_text = (tldr + "\n".join([x["heading"] + "\n" + x["body"] for x in clean_sections]) +
-                  "\n".join([x["q"] + "\n" + x["a"] for x in clean_faq]))
+    total_text = (
+        (tldr or "")
+        + "\n".join([x["heading"] + "\n" + x["body"] for x in clean_sections])
+        + "\n".join([x["q"] + "\n" + x["a"] for x in clean_faq])
+    )
     if len(total_text) < MIN_CHARS:
         raise ValueError("Generated text too short")
 
@@ -466,28 +469,23 @@ def render_post_html(
     canonical = f"{SITE_URL}/posts/{slug}.html"
     og_image = f"{SITE_URL}/{image_paths[0]}" if image_paths else ""
 
-    # content 구성
     blocks = []
 
-    # TLDR
     blocks.append("<h2>TL;DR</h2>")
     blocks.append(paragraphs_to_html(tldr))
 
-    # 5개 이미지 + 5개 섹션
-    # 이미지 1도 본문에 넣고 싶으면 아래 루프가 해결
-    for i in range(5):
-        img_rel = f"../{image_paths[i]}"  # image_paths = assets/posts/slug/i.jpg
+    # ✅ 7개 이미지 + 7개 섹션
+    for i in range(IMG_COUNT):
+        img_rel = f"../{image_paths[i]}"
         blocks.append(f"<img src=\"{img_rel}\" alt=\"{html_escape(title)}\" loading=\"lazy\">")
         blocks.append(f"<h2>{html_escape(sections[i]['heading'])}</h2>")
         blocks.append(paragraphs_to_html(sections[i]["body"]))
 
-    # FAQ
     if faq:
         blocks.append("<h2>FAQ</h2>")
         for item in faq:
             blocks.append(f"<p><strong>{html_escape(item['q'])}</strong><br>{html_escape(item['a'])}</p>")
 
-    # credits
     if photo_credits_li:
         blocks.append("<h2>Photo credits</h2>")
         blocks.append("<ul>" + "\n".join(photo_credits_li) + "</ul>")
@@ -673,15 +671,15 @@ def main() -> int:
         if slug in existing_slugs:
             slug = f"{slug}-{int(time.time())}"
 
-        # 2) 이미지 5장 (섹션 이미지쿼리 기반)
+        # 2) 이미지 7장 (섹션 image_query 기반)
         queries = [s.get("image_query") for s in sections]
-        # 5개 보장
-        if len(queries) != 5:
-            queries = [title] * 5
+
+        if len(queries) != IMG_COUNT:
+            queries = [title] * IMG_COUNT
 
         image_paths, credits_li = get_high_quality_photos_for_queries(slug, queries)
-        if len(image_paths) < 5:
-            print("Could not source 5 high quality photos. Skipping.")
+        if len(image_paths) < IMG_COUNT:
+            print(f"Could not source {IMG_COUNT} high quality photos. Skipping.")
             continue
 
         # 3) HTML 생성
