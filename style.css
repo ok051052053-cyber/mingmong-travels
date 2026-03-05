@@ -599,3 +599,93 @@ a:hover{text-decoration:underline}
     height:28px;
   }
 }
+
+/* =========================
+   CATEGORY PAGE SIDEBAR MENU
+   (menu-list / menu-item)
+   ========================= */
+
+.sidebox{padding:16px}
+.sidebox h4{margin:0 0 10px;font-size:14px}
+
+.menu-list{
+  display:grid;
+  gap:12px;
+}
+
+.menu-item{
+  display:flex;
+  gap:12px;
+  align-items:center;
+  padding:12px 12px;
+  border-radius:16px;
+  border:1px solid rgba(15,23,42,.10);
+  background:#fff;
+  text-decoration:none;
+  color:var(--text);
+  box-shadow:0 10px 24px rgba(15,23,42,.06);
+  transition:transform .16s ease, box-shadow .16s ease, background .16s ease;
+}
+
+.menu-item:hover{
+  transform:translateY(-1px);
+  box-shadow:0 14px 28px rgba(15,23,42,.10);
+  text-decoration:none;
+}
+
+.menu-ico{
+  width:54px;
+  height:54px;
+  border-radius:18px;
+  display:grid;
+  place-items:center;
+  background:rgba(37,99,235,.10);
+  border:1px solid rgba(15,23,42,.08);
+  flex:0 0 54px;
+  font-size:22px;
+}
+
+.menu-text{
+  display:grid;
+  gap:2px;
+  min-width:0;
+}
+
+.menu-title{
+  font-weight:900;
+  font-size:16px;
+  line-height:1.15;
+  color:var(--text);
+}
+
+.menu-sub{
+  font-weight:700;
+  font-size:13px;
+  color:rgba(15,23,42,.55);
+  line-height:1.2;
+}
+
+/* Hot now 오른쪽 조회수 */
+.hot-views{
+  margin-left:auto;
+  font-weight:900;
+  color:rgba(15,23,42,.55);
+  font-size:13px;
+}
+
+/* Hot now 링크가 좌우로 벌어지게 */
+.hot-link{
+  justify-content:space-between;
+}
+
+/* 모바일에서 메뉴 더 예쁘게 */
+@media(max-width:600px){
+  .menu-item{padding:12px}
+  .menu-ico{
+    width:52px;
+    height:52px;
+    border-radius:18px;
+  }
+  .menu-title{font-size:16px}
+  .menu-sub{font-size:13px}
+}
