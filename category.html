@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Category | MingMong</title>
   <meta name="description" content="Browse posts by category on MingMong." />
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css?v=6" />
 </head>
 
 <body class="page-bg">
@@ -42,11 +42,11 @@
 
     <aside class="sidebar">
 
+      <!-- ✅ Sidebar stays, but heading changed to "Categories" and is the main nav -->
       <div class="card sidebox">
-        <h4>Browse</h4>
+        <h4>Categories</h4>
 
-        <!-- ✅ Clean list menu style -->
-        <nav class="menu-list" aria-label="Browse categories">
+        <nav class="menu-list" aria-label="Categories">
           <a class="menu-item" href="category.html?cat=AI%20Tools">
             <span class="menu-ico" aria-hidden="true">🤖</span>
             <span class="menu-text">
@@ -151,17 +151,39 @@ function getParam(name) {
     return "#";
   }
 
+  function dateKey(p) {
+    const d = String((p && (p.updated || p.date)) || "");
+    const t = Date.parse(d);
+    if (!Number.isNaN(t)) return t;
+    const t2 = Date.parse(d + "T00:00:00Z");
+    if (!Number.isNaN(t2)) return t2;
+    return 0;
+  }
+
+  function formatDate(d) {
+    const s = String(d || "");
+    const t = Date.parse(s);
+    if (Number.isNaN(t)) return "";
+    try {
+      return new Date(t).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "2-digit" });
+    } catch (e) {
+      return s.slice(0, 10);
+    }
+  }
+
   function postCard(p) {
     const href = postHref(p);
     const t = thumbUrl(p);
     const thumbStyle = t ? `style="background-image:url('${esc(t)}')"` : "";
     const thumbClass = t ? "thumb has-img" : "thumb";
 
+    const dt = formatDate(p.updated || p.date);
+
     return `
       <a class="post-card" href="${href}">
         <div class="${thumbClass}" ${thumbStyle} aria-hidden="true"></div>
         <div>
-          <div class="kicker">${esc(p.category || "Article")}</div>
+          <div class="kicker">${esc(p.category || "Article")}${dt ? ` · <span class="muted-date">${esc(dt)}</span>` : ""}</div>
           <div class="post-title">${esc(p.title || "Untitled")}</div>
           <p class="post-desc">${esc(p.description || "")}</p>
         </div>
@@ -193,7 +215,7 @@ function getParam(name) {
 
     const filtered = posts
       .filter(p => (p.category || "").toLowerCase() === cat.toLowerCase())
-      .sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+      .sort((a, b) => dateKey(b) - dateKey(a));
 
     document.getElementById("countLine").textContent = `Posts (${filtered.length})`;
 
