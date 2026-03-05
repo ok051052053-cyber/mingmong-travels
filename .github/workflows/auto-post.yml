@@ -33,14 +33,13 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Generate posts
+      - name: Generate post (HTML + Unsplash only)
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           UNSPLASH_ACCESS_KEY: ${{ secrets.UNSPLASH_ACCESS_KEY }}
           SITE_NAME: MingMong
           SITE_URL: https://mingmonglife.com
           POSTS_PER_RUN: 1
-          IMG_COUNT: 4
           MIN_CHARS: 2800
           MODEL: gpt-4o-mini
           UNSPLASH_MIN_WIDTH: 2000
@@ -51,39 +50,25 @@ jobs:
         run: |
           python tools/auto_post.py
 
-      - name: Commit and push (safe)
+      - name: Build sitemap
+        env:
+          SITE_URL: https://mingmonglife.com
+        run: |
+          python tools/build.py
+
+      - name: Commit and push
         run: |
           set -e
-
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
           git add -A
 
-          # 변경 없으면 종료
           if git diff --cached --quiet; then
             echo "No changes to commit"
             exit 0
           fi
 
-          # 먼저 로컬에 커밋을 만들어 둬야 rebase 가능
           git commit -m "Auto post"
-
-          # 원격 최신 반영 후 push
           git pull --rebase origin main
           git push origin HEAD:main
-
-      - name: Commit and push
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-          git add -A
-          git commit -m "Auto post" || echo "No changes to commit"
-
-          git pull --rebase origin main
-          git push
-
-      - name: Fix posts index
-        run: |
-          python tools/fix_posts_index.py
