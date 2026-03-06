@@ -9,14 +9,15 @@ SITEMAP = ROOT / "sitemap.xml"
 
 SITE_URL = os.environ.get("SITE_URL", "https://mingmonglife.com").strip().rstrip("/")
 
+CATEGORY_PATHS = [
+    "category.html?cat=AI%20Tools",
+    "category.html?cat=Make%20Money",
+    "category.html?cat=Productivity",
+    "category.html?cat=Reviews",
+]
+
 
 def _to_dt(s: str) -> datetime:
-    """
-    Parse:
-      - YYYY-MM-DD
-      - ISO: 2026-03-04T08:23:14Z or with offset
-    Fallback: epoch
-    """
     if not s or not isinstance(s, str):
         return datetime(1970, 1, 1, tzinfo=timezone.utc)
 
@@ -28,7 +29,6 @@ def _to_dt(s: str) -> datetime:
             if dt.tzinfo is None:
                 dt = dt.replace(tzinfo=timezone.utc)
             return dt.astimezone(timezone.utc)
-        # YYYY-MM-DD
         dt = datetime.fromisoformat(s[:10])
         return dt.replace(tzinfo=timezone.utc)
     except Exception:
@@ -57,24 +57,16 @@ def load_posts() -> list[dict]:
 
     clean = [p for p in posts if isinstance(p, dict)]
 
-    # newest first by true datetime
-    clean.sort(
-        key=lambda p: _to_dt((p.get("updated") or p.get("date") or "").strip()),
-        reverse=True,
-    )
+    def sort_key(p: dict):
+        dt = _to_dt((p.get("updated") or p.get("date") or "").strip())
+        pillar_boost = 1 if p.get("post_type") == "pillar" else 0
+        return (pillar_boost, dt)
+
+    clean.sort(key=sort_key, reverse=True)
     return clean
 
 
 def resolve_post_url(p: dict) -> str:
-    """
-    Priority:
-      1) p["url"] if present
-      2) /posts/<slug>.html
-    Normalize:
-      - leading slash 제거
-      - .md -> .html
-      - posts/<slug> -> posts/<slug>.html
-    """
     slug = (p.get("slug") or "").strip()
     url = (p.get("url") or "").strip()
 
@@ -84,11 +76,9 @@ def resolve_post_url(p: dict) -> str:
         if url_path.endswith(".md"):
             url_path = url_path[:-3] + ".html"
 
-        # posts/slug (no ext) -> posts/slug.html
         if url_path.startswith("posts/") and "." not in Path(url_path).name:
             url_path = url_path + ".html"
 
-        # if still no extension but has slug-like path, force .html
         if "." not in Path(url_path).name and url_path.startswith("posts/"):
             url_path = url_path + ".html"
 
@@ -109,17 +99,27 @@ def build_sitemap(posts: list[dict]) -> None:
     entries.append(f"<url><loc>{home}</loc></url>")
     seen.add(home)
 
-    for p in posts:
-        loc = resolve_post_url(p)
-        if not loc or loc in seen:
-            continue
-        seen.add(loc)
-
-        lastmod = _lastmod_str(p)
-        if lastmod:
-            entries.append(f"<url><loc>{loc}</loc><lastmod>{lastmod}</lastmod></url>")
-        else:
+    for cat_path in CATEGORY_PATHS:
+        loc = f"{SITE_URL}/{cat_path}"
+        if loc not in seen:
             entries.append(f"<url><loc>{loc}</loc></url>")
+            seen.add(loc)
+
+    pillars = [p for p in posts if p.get("post_type") == "pillar"]
+    normal_posts = [p for p in posts if p.get("post_type") != "pillar"]
+
+    for group in [pillars, normal_posts]:
+        for p in group:
+            loc = resolve_post_url(p)
+            if not loc or loc in seen:
+                continue
+            seen.add(loc)
+
+            lastmod = _lastmod_str(p)
+            if lastmod:
+                entries.append(f"<url><loc>{loc}</loc><lastmod>{lastmod}</lastmod></url>")
+            else:
+                entries.append(f"<url><loc>{loc}</loc></url>")
 
     xml = (
         '<?xml version="1.0" encoding="UTF-8"?>\n'
