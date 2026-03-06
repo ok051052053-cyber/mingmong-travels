@@ -70,18 +70,18 @@ margin:0;
 display:grid;
 grid-template-columns:1fr;
 gap:24px;
-align-items:start;
+align-items:center;
 }
 @media(min-width:1100px){
 .hero-shell{
-grid-template-columns:minmax(0,1fr) 340px;
-gap:28px;
+grid-template-columns:minmax(0,1fr) 380px;
+gap:32px;
 }
 .hero-main{
 max-width:780px;
 }
 }
-  
+
 .hero-stats{
 display:grid;
 grid-template-columns:repeat(3,minmax(0,1fr));
@@ -109,104 +109,28 @@ font-size:13px;
 color:var(--muted);
 }
 
-.hero-side{
-display:block;
-}
-.hero-side-card{
-border:1px solid var(--border);
-border-radius:18px;
-background:#fff;
-box-shadow:var(--shadow);
-padding:18px;
-}
-.hero-side-kicker{
-font-size:12px;
-font-weight:800;
-color:var(--accent);
-margin-bottom:8px;
-}
-.hero-side-title{
-font-size:22px;
-font-weight:900;
-line-height:1.2;
-letter-spacing:-.02em;
-margin:0 0 10px;
-}
-.hero-side-desc{
-margin:0 0 16px;
-font-size:14px;
-line-height:1.6;
-color:var(--muted);
-}
-.hero-side-stats{
-display:grid;
-grid-template-columns:1fr 1fr;
-gap:10px;
-margin-bottom:16px;
-}
-.hero-mini{
-padding:12px 12px;
-border:1px solid var(--border);
-border-radius:14px;
-background:#f8fafc;
-}
-.hero-mini-num{
-display:block;
-font-size:18px;
-font-weight:900;
-line-height:1.1;
-}
-.hero-mini-label{
-display:block;
-margin-top:4px;
-font-size:12px;
-color:var(--muted);
-}
-.hero-side-links{
-display:grid;
-gap:10px;
-margin-bottom:16px;
-}
-.hero-side-link{
+.hero-visual-wrap{
 display:flex;
+justify-content:center;
 align-items:center;
-justify-content:space-between;
-gap:10px;
-padding:12px 12px;
-border:1px solid var(--border);
-border-radius:14px;
-background:#fff;
-color:var(--text);
-font-weight:800;
-text-decoration:none;
 }
-.hero-side-link:hover{
-background:#f9fafb;
-text-decoration:none;
-}
-.hero-side-guide{
-display:block;
-padding:14px;
+.hero-visual{
+width:100%;
+max-width:380px;
+aspect-ratio:1 / 1;
+border-radius:30px;
+overflow:hidden;
 border:1px solid var(--border);
-border-radius:14px;
+box-shadow:var(--shadow);
 background:#f8fafc;
-text-decoration:none;
-color:inherit;
 }
-.hero-side-guide:hover{
-text-decoration:none;
-background:#f1f5f9;
-}
-.hero-side-guide-title{
+.hero-visual img{
+width:100%;
+height:100%;
+object-fit:cover;
 display:block;
-font-weight:800;
-line-height:1.45;
-margin-bottom:6px;
 }
-.hero-side-guide-meta{
-font-size:12px;
-color:var(--muted);
-}
+
 .section-row{
 display:flex;
 align-items:center;
@@ -230,43 +154,14 @@ background:#fff;
 .hero-stats{
 grid-template-columns:1fr;
 }
-.hero-side-stats{
-grid-template-columns:1fr 1fr;
-}
-.hero-title{
-  font-size:clamp(40px,5vw,78px);
-  line-height:1.03;
-  letter-spacing:-.05em;
-  margin:0 0 14px;
-  font-weight:950;
-}
-.hero-side-card{
-border:1px solid var(--border);
-border-radius:18px;
-background:#fff;
-box-shadow:var(--shadow);
-padding:18px;
-}
-
-.hero-side-links{
-display:grid;
-gap:10px;
-margin-bottom:12px;
-}
-
-.hero-side-guide{
-display:block;
-padding:14px;
-border:1px solid var(--border);
-border-radius:14px;
-background:#f8fafc;
-text-decoration:none;
-color:inherit;
-margin-top:0;
-}
 .section-row{
 align-items:flex-start;
 flex-direction:column;
+}
+.hero-visual{
+max-width:100%;
+aspect-ratio:16 / 11;
+border-radius:24px;
 }
 }
 </style>
@@ -320,51 +215,28 @@ Earn more with clear steps.
 <a class="btn" href="category.html?cat=Make%20Money">Explore Make Money</a>
 </div>
 
+<div class="hero-stats" id="hero-stats">
+<div class="hero-stat">
+<span class="hero-stat-num" id="stat-posts">0</span>
+<span class="hero-stat-label">Published posts</span>
 </div>
-
-<aside class="hero-side">
-<div class="hero-side-card">
-<div class="hero-side-kicker">START HERE</div>
-<h2 class="hero-side-title">Pick a path</h2>
-<p class="hero-side-desc">
-Start with tools and workflows.
-Then move into freelance systems and income focused guides.
-</p>
-
-<div class="hero-side-stats">
-<div class="hero-mini">
-<span class="hero-mini-num" id="side-posts">0</span>
-<span class="hero-mini-label">Posts</span>
+<div class="hero-stat">
+<span class="hero-stat-num" id="stat-guides">0</span>
+<span class="hero-stat-label">Featured guides</span>
 </div>
-<div class="hero-mini">
-<span class="hero-mini-num" id="side-guides">0</span>
-<span class="hero-mini-label">Guides</span>
+<div class="hero-stat">
+<span class="hero-stat-num" id="stat-cats">4</span>
+<span class="hero-stat-label">Core categories</span>
 </div>
 </div>
 
-<div class="hero-side-links">
-<a class="hero-side-link" href="category.html?cat=AI%20Tools">
-<span>AI Tools</span>
-<span>→</span>
-</a>
-<a class="hero-side-link" href="category.html?cat=Productivity">
-<span>Productivity</span>
-<span>→</span>
-</a>
-<a class="hero-side-link" href="category.html?cat=Make%20Money">
-<span>Make Money</span>
-<span>→</span>
-</a>
 </div>
 
-<div id="hero-guide-wrap">
-<a id="hero-guide" class="hero-side-guide" href="category.html?cat=AI%20Tools">
-<span class="hero-side-guide-title">Latest guide will appear here</span>
-<span class="hero-side-guide-meta">Featured guide</span>
-</a>
+<div class="hero-visual-wrap">
+<div class="hero-visual">
+<img id="hero-image" src="assets/hero/hero-1.jpg" alt="Modern productivity workspace" />
 </div>
 </div>
-</aside>
 
 </div>
 
@@ -527,6 +399,21 @@ if(!Number.isNaN(t2)) return t2;
 return 0;
 }
 
+function setRandomHeroImage(){
+const heroImage=document.getElementById("hero-image");
+if(!heroImage) return;
+
+const heroImages=[
+"assets/hero/hero-1.jpg",
+"assets/hero/hero-2.jpg",
+"assets/hero/hero-3.jpg",
+"assets/hero/hero-4.jpg"
+];
+
+const picked=heroImages[Math.floor(Math.random()*heroImages.length)];
+heroImage.src=picked;
+}
+
 function postCardVertical(p){
 const href=postHref(p);
 const t=thumbUrl(p);
@@ -601,6 +488,8 @@ return`<a class="hot-link" href="${href}">${esc(p.title)}${badge}</a>`;
 }
 
 async function main(){
+setRandomHeroImage();
+
 let posts=[];
 
 try{
@@ -627,34 +516,14 @@ const latestWrap=document.getElementById("latest-list");
 const featuredMeta=document.getElementById("featured-meta");
 const latestMeta=document.getElementById("latest-meta");
 
-  
-const sidePosts=document.getElementById("side-posts");
-const sideGuides=document.getElementById("side-guides");
-const heroGuide=document.getElementById("hero-guide");
-const heroGuideWrap=document.getElementById("hero-guide-wrap");
+const statPosts=document.getElementById("stat-posts");
+const statGuides=document.getElementById("stat-guides");
 
 const featured = posts.filter(p => p.post_type === "pillar").slice(0,6);
 const latest = posts.filter(p => p.post_type !== "pillar");
 
-  
-if(sidePosts) sidePosts.textContent = String(posts.length);
-if(sideGuides) sideGuides.textContent = String(featured.length);
-
-if(heroGuide && heroGuideWrap){
-if(featured.length){
-heroGuide.href = postHref(featured[0]);
-heroGuide.innerHTML = `
-<span class="hero-side-guide-title">${esc(featured[0].title || "Untitled")}</span>
-<span class="hero-side-guide-meta">${esc(featured[0].category || "Guide")} · Featured guide</span>
-`;
-}else{
-heroGuide.href = "category.html?cat=AI%20Tools";
-heroGuide.innerHTML = `
-<span class="hero-side-guide-title">Browse the latest AI and productivity posts</span>
-<span class="hero-side-guide-meta">Start with the newest articles</span>
-`;
-}
-}
+if(statPosts) statPosts.textContent = String(posts.length);
+if(statGuides) statGuides.textContent = String(featured.length);
 
 if(featuredWrap && featuredSection){
 if(featured.length){
