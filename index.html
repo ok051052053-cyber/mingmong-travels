@@ -7,7 +7,7 @@
 
 <meta name="description" content="AI tools, productivity workflows, and practical ways to earn more. Clear guides for young professionals in the US and Europe." />
 
-<link rel="stylesheet" href="style.css?v=6" />
+<link rel="stylesheet" href="style.css?v=7" />
 
 <script async
 src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4096511761257113"
@@ -65,6 +65,63 @@ color:var(--muted);
 line-height:1.6;
 margin:0;
 }
+
+.hero-stats{
+display:grid;
+grid-template-columns:repeat(3,minmax(0,1fr));
+gap:14px;
+margin-top:24px;
+max-width:760px;
+}
+.hero-stat{
+padding:14px 16px;
+border:1px solid var(--border);
+border-radius:16px;
+background:rgba(255,255,255,.78);
+box-shadow:var(--shadow);
+}
+.hero-stat-num{
+display:block;
+font-size:20px;
+font-weight:800;
+line-height:1.1;
+}
+.hero-stat-label{
+display:block;
+margin-top:4px;
+font-size:13px;
+color:var(--muted);
+}
+
+.section-row{
+display:flex;
+align-items:center;
+justify-content:space-between;
+gap:12px;
+}
+.section-meta{
+font-size:13px;
+color:var(--muted);
+white-space:nowrap;
+}
+
+.empty-soft{
+padding:18px;
+border:1px dashed var(--border);
+border-radius:16px;
+color:var(--muted);
+background:#fff;
+}
+
+@media (max-width: 760px){
+.hero-stats{
+grid-template-columns:1fr;
+}
+.section-row{
+align-items:flex-start;
+flex-direction:column;
+}
+}
 </style>
 
 </head>
@@ -110,6 +167,21 @@ Earn more with clear steps.
 <div class="hero-cta">
 <a class="btn primary" href="category.html?cat=AI%20Tools">Start with AI Tools</a>
 <a class="btn" href="category.html?cat=Make%20Money">Explore Make Money</a>
+</div>
+
+<div class="hero-stats" id="hero-stats">
+<div class="hero-stat">
+<span class="hero-stat-num" id="stat-posts">0</span>
+<span class="hero-stat-label">Published posts</span>
+</div>
+<div class="hero-stat">
+<span class="hero-stat-num" id="stat-guides">0</span>
+<span class="hero-stat-label">Featured guides</span>
+</div>
+<div class="hero-stat">
+<span class="hero-stat-num" id="stat-cats">4</span>
+<span class="hero-stat-label">Core categories</span>
+</div>
 </div>
 
 </section>
@@ -165,13 +237,21 @@ Earn more with clear steps.
 
 <article class="card article">
 
+<div id="featured-section">
+<div class="section-row">
 <h2>Featured Guides</h2>
+<div class="section-meta" id="featured-meta"></div>
+</div>
 
 <hr class="hr"/>
 
 <div id="featured-guides" class="featured-grid"></div>
+</div>
 
-<h2 style="margin-top:32px;">Latest Articles</h2>
+<div class="section-row" style="margin-top:32px;">
+<h2>Latest Articles</h2>
+<div class="section-meta" id="latest-meta"></div>
+</div>
 
 <hr class="hr"/>
 
@@ -357,21 +437,38 @@ if(pb !== pa) return pb - pa;
 return dateKey(b) - dateKey(a);
 });
 
+const featuredSection=document.getElementById("featured-section");
 const featuredWrap=document.getElementById("featured-guides");
 const latestWrap=document.getElementById("latest-list");
+const featuredMeta=document.getElementById("featured-meta");
+const latestMeta=document.getElementById("latest-meta");
 
 const featured = posts.filter(p => p.post_type === "pillar").slice(0,6);
 const latest = posts.filter(p => p.post_type !== "pillar");
 
-if(featuredWrap){
-featuredWrap.innerHTML = featured.length
-? featured.map(featuredCard).join("")
-: `<div class="tiny-note">Featured guides will appear here.</div>`;
+const statPosts=document.getElementById("stat-posts");
+const statGuides=document.getElementById("stat-guides");
+
+if(statPosts) statPosts.textContent = String(posts.length);
+if(statGuides) statGuides.textContent = String(featured.length);
+
+if(featuredWrap && featuredSection){
+if(featured.length){
+featuredWrap.innerHTML = featured.map(featuredCard).join("");
+if(featuredMeta) featuredMeta.textContent = `${featured.length} guide${featured.length > 1 ? "s" : ""}`;
+}else{
+featuredSection.style.display = "none";
+}
 }
 
 if(latestWrap){
-latestWrap.innerHTML =
-latest.map(postCardVertical).join("");
+if(latest.length){
+latestWrap.innerHTML = latest.map(postCardVertical).join("");
+if(latestMeta) latestMeta.textContent = `${latest.length} article${latest.length > 1 ? "s" : ""}`;
+}else{
+latestWrap.innerHTML = `<div class="empty-soft">Fresh articles will appear here as new posts are published.</div>`;
+if(latestMeta) latestMeta.textContent = `0 articles`;
+}
 }
 
 renderPopularPicks(posts);
