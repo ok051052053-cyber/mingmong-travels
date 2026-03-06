@@ -1,4 +1,3 @@
-<!-- index.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -8,7 +7,7 @@
 
 <meta name="description" content="AI tools, productivity workflows, and practical ways to earn more. Clear guides for young professionals in the US and Europe." />
 
-<link rel="stylesheet" href="style.css?v=5" />
+<link rel="stylesheet" href="style.css?v=6" />
 
 <script async
 src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4096511761257113"
@@ -22,6 +21,51 @@ function gtag(){dataLayer.push(arguments);}
 gtag('js', new Date());
 gtag('config', 'G-9PWEGHXHE7');
 </script>
+
+<style>
+.pillar-badge{
+display:inline-block;
+margin-top:8px;
+padding:4px 8px;
+border-radius:999px;
+font-size:11px;
+font-weight:700;
+background:#eef6ff;
+color:#2563eb;
+}
+.featured-grid{
+display:grid;
+grid-template-columns:repeat(auto-fit,minmax(240px,1fr));
+gap:16px;
+}
+.featured-card{
+display:block;
+padding:18px;
+border:1px solid var(--border);
+border-radius:16px;
+background:#fff;
+text-decoration:none;
+color:inherit;
+box-shadow:var(--shadow);
+}
+.featured-kicker{
+font-size:12px;
+color:var(--muted);
+margin-bottom:6px;
+}
+.featured-title{
+font-size:18px;
+font-weight:700;
+line-height:1.45;
+margin-bottom:8px;
+}
+.featured-desc{
+font-size:14px;
+color:var(--muted);
+line-height:1.6;
+margin:0;
+}
+</style>
 
 </head>
 
@@ -69,7 +113,6 @@ Earn more with clear steps.
 </div>
 
 </section>
-
 
 
 <section class="home-block">
@@ -122,7 +165,13 @@ Earn more with clear steps.
 
 <article class="card article">
 
-<h2>Latest Articles</h2>
+<h2>Featured Guides</h2>
+
+<hr class="hr"/>
+
+<div id="featured-guides" class="featured-grid"></div>
+
+<h2 style="margin-top:32px;">Latest Articles</h2>
 
 <hr class="hr"/>
 
@@ -134,15 +183,13 @@ Earn more with clear steps.
 
 <aside class="sidebar">
 
-<!-- ✅ Start here 카드 제거됨 -->
-
 <div class="card related">
 
 <h4>Popular picks</h4>
 
 <div id="popular-picks"></div>
 
-<p class="tiny-note">Auto selected from your newest posts.</p>
+<p class="tiny-note">Pillars first. Then viewed or newest posts.</p>
 
 </div>
 
@@ -193,29 +240,30 @@ return s;
 }
 
 function thumbUrl(p){
-
 const raw=p.thumbnail||
 p.image||
 (p.slug?`assets/posts/${p.slug}/1.jpg`:"");
-
 return normalizeImgPath(raw);
-
 }
 
 function postHref(p){
-
 if(p && p.url)
 return p.url;
-
 if(p && p.slug)
 return `posts/${p.slug}.html`;
-
 return "#";
+}
 
+function dateKey(p){
+const d=String((p && (p.updated || p.date)) || "");
+const t=Date.parse(d);
+if(!Number.isNaN(t)) return t;
+const t2=Date.parse(d + "T00:00:00Z");
+if(!Number.isNaN(t2)) return t2;
+return 0;
 }
 
 function postCardVertical(p){
-
 const href=postHref(p);
 const t=thumbUrl(p);
 
@@ -223,91 +271,110 @@ const thumbStyle=t?
 `style="background-image:url('${esc(t)}')"`:"";
 
 const thumbClass=t?"thumb has-img":"thumb";
+const badge = p.post_type === "pillar"
+? `<span class="pillar-badge">Featured Guide</span>`
+: "";
 
 return`
-
 <a class="post-card post-card--v" href="${href}">
-
 <div class="${thumbClass}" ${thumbStyle}></div>
-
 <div class="post-body">
-
 <div class="kicker">${esc(p.category||"Article")}</div>
-
 <div class="post-title">${esc(p.title||"Untitled")}</div>
-
 <p class="post-desc">${esc(p.description||"")}</p>
-
+${badge}
 </div>
-
 </a>
-
 `;
+}
 
+function featuredCard(p){
+const href=postHref(p);
+return `
+<a class="featured-card" href="${href}">
+<div class="featured-kicker">${esc(p.category || "Guide")}</div>
+<div class="featured-title">${esc(p.title || "Untitled")}</div>
+<p class="featured-desc">${esc(p.description || "")}</p>
+<span class="pillar-badge">Featured Guide</span>
+</a>
+`;
 }
 
 function renderPopularPicks(posts){
-
 const wrap=document.getElementById("popular-picks");
-
 if(!wrap)return;
 
-const pool=posts
-.filter(p=>p && p.slug)
-.slice(0,6);
+const pillars = posts.filter(p => p && p.slug && p.post_type === "pillar").slice(0,3);
+const viewed = posts
+.filter(p => p && p.slug && Number(p.views||0) > 0)
+.slice()
+.sort((a,b) => (Number(b.views)||0) - (Number(a.views)||0))
+.slice(0,3);
+
+let pool = [...pillars];
+for(const p of viewed){
+if(!pool.find(x => x.slug === p.slug)) pool.push(p);
+}
+if(pool.length < 6){
+for(const p of posts.slice(0,10)){
+if(p && p.slug && !pool.find(x => x.slug === p.slug)){
+pool.push(p);
+}
+if(pool.length >= 6) break;
+}
+}
 
 if(!pool.length){
-
 wrap.innerHTML=`<div class="tiny-note">No posts yet</div>`;
 return;
-
 }
 
 wrap.innerHTML=pool.map(p=>{
-
 const href=postHref(p);
-
-return`<a class="hot-link" href="${href}">${esc(p.title)}</a>`;
-
+const badge=p.post_type==="pillar" ? ` <span class="pillar-badge">Guide</span>` : "";
+return`<a class="hot-link" href="${href}">${esc(p.title)}${badge}</a>`;
 }).join("");
-
 }
 
 async function main(){
-
 let posts=[];
 
 try{
-
 const res=await fetch("posts.json",{cache:"no-store"});
-
 posts=await res.json();
-
 if(!Array.isArray(posts))
 posts=[];
-
 }catch(e){
-
 posts=[];
-
 }
 
 posts=posts
 .filter(p=>p && p.slug)
-.sort((a,b)=>String(b.date||"").localeCompare(String(a.date||"")));
+.sort((a,b)=>{
+const pa=a.post_type==="pillar" ? 1 : 0;
+const pb=b.post_type==="pillar" ? 1 : 0;
+if(pb !== pa) return pb - pa;
+return dateKey(b) - dateKey(a);
+});
 
+const featuredWrap=document.getElementById("featured-guides");
 const latestWrap=document.getElementById("latest-list");
 
+const featured = posts.filter(p => p.post_type === "pillar").slice(0,6);
+const latest = posts.filter(p => p.post_type !== "pillar");
+
+if(featuredWrap){
+featuredWrap.innerHTML = featured.length
+? featured.map(featuredCard).join("")
+: `<div class="tiny-note">Featured guides will appear here.</div>`;
+}
+
 if(latestWrap){
-
-/* ✅ 12개 제한 제거: 모든 글 표시 */
-latestWrap.innerHTML=
-posts.map(postCardVertical).join("");
-
+latestWrap.innerHTML =
+latest.map(postCardVertical).join("");
 }
 
 renderPopularPicks(posts);
-
 }
 
 main();
