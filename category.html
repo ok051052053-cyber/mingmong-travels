@@ -5,11 +5,61 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Category | MingMong</title>
   <meta name="description" content="Browse posts by category on MingMong." />
-  <link rel="stylesheet" href="style.css?v=6" />
+  <link rel="stylesheet" href="style.css?v=7" />
 
   <script async
   src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4096511761257113"
   crossorigin="anonymous"></script>
+
+  <style>
+    .pillar-badge{
+      display:inline-block;
+      margin-top:8px;
+      padding:4px 8px;
+      border-radius:999px;
+      font-size:11px;
+      font-weight:700;
+      background:#eef6ff;
+      color:#2563eb;
+    }
+    .featured-grid{
+      display:grid;
+      gap:16px;
+      margin-bottom:24px;
+    }
+    .featured-card{
+      display:block;
+      padding:18px;
+      border:1px solid var(--border);
+      border-radius:16px;
+      background:#fff;
+      text-decoration:none;
+      color:inherit;
+      box-shadow:var(--shadow);
+    }
+    .featured-kicker{
+      font-size:12px;
+      color:var(--muted);
+      margin-bottom:6px;
+    }
+    .featured-title{
+      font-size:18px;
+      font-weight:700;
+      line-height:1.45;
+      margin-bottom:8px;
+    }
+    .featured-desc{
+      margin:0;
+      color:var(--muted);
+      line-height:1.6;
+      font-size:14px;
+    }
+    .section-head{
+      margin:0 0 16px 0;
+      font-size:18px;
+      font-weight:700;
+    }
+  </style>
 
 </head>
 
@@ -42,12 +92,20 @@
     <article class="card article">
       <h2 id="countLine">Posts</h2>
       <hr class="hr" />
-      <div id="catList"></div>
+
+      <div id="featuredWrap">
+        <h3 class="section-head">Featured Guides</h3>
+        <div id="featuredList" class="featured-grid"></div>
+      </div>
+
+      <div id="postsWrap">
+        <h3 class="section-head">All Articles</h3>
+        <div id="catList"></div>
+      </div>
     </article>
 
     <aside class="sidebar">
 
-      <!-- ✅ Sidebar stays, but heading changed to "Categories" and is the main nav -->
       <div class="card sidebox">
         <h4>Categories</h4>
 
@@ -89,7 +147,7 @@
       <div class="card related">
         <h4>Hot now!</h4>
         <div id="hot-now"></div>
-        <p class="tiny-note">Views based ranking when available.</p>
+        <p class="tiny-note">Guides first. Then viewed or newest posts.</p>
       </div>
 
     </aside>
@@ -183,6 +241,9 @@ function getParam(name) {
     const thumbClass = t ? "thumb has-img" : "thumb";
 
     const dt = formatDate(p.updated || p.date);
+    const badge = p.post_type === "pillar"
+      ? `<span class="pillar-badge">Featured Guide</span>`
+      : "";
 
     return `
       <a class="post-card" href="${href}">
@@ -191,7 +252,20 @@ function getParam(name) {
           <div class="kicker">${esc(p.category || "Article")}${dt ? ` · <span class="muted-date">${esc(dt)}</span>` : ""}</div>
           <div class="post-title">${esc(p.title || "Untitled")}</div>
           <p class="post-desc">${esc(p.description || "")}</p>
+          ${badge}
         </div>
+      </a>
+    `;
+  }
+
+  function featuredCard(p) {
+    const href = postHref(p);
+    return `
+      <a class="featured-card" href="${href}">
+        <div class="featured-kicker">${esc(p.category || "Guide")}</div>
+        <div class="featured-title">${esc(p.title || "Untitled")}</div>
+        <p class="featured-desc">${esc(p.description || "")}</p>
+        <span class="pillar-badge">Featured Guide</span>
       </a>
     `;
   }
@@ -217,24 +291,59 @@ function getParam(name) {
 
     const listEl = document.getElementById("catList");
     const hotWrap = document.getElementById("hot-now");
+    const featuredList = document.getElementById("featuredList");
+    const featuredWrap = document.getElementById("featuredWrap");
 
     const filtered = posts
       .filter(p => (p.category || "").toLowerCase() === cat.toLowerCase())
-      .sort((a, b) => dateKey(b) - dateKey(a));
+      .sort((a, b) => {
+        const pa = a.post_type === "pillar" ? 1 : 0;
+        const pb = b.post_type === "pillar" ? 1 : 0;
+        if (pb !== pa) return pb - pa;
+        return dateKey(b) - dateKey(a);
+      });
+
+    const pillars = filtered.filter(p => p.post_type === "pillar");
+    const normals = filtered.filter(p => p.post_type !== "pillar");
 
     document.getElementById("countLine").textContent = `Posts (${filtered.length})`;
 
-    if (!filtered.length) {
-      listEl.innerHTML = `<p style="color: var(--muted); margin: 0;">No posts found in this category.</p>`;
+    if (!pillars.length) {
+      featuredWrap.style.display = "none";
     } else {
-      listEl.innerHTML = filtered.map(postCard).join("");
+      featuredList.innerHTML = pillars.map(featuredCard).join("");
     }
 
-    const hot = posts
-      .filter(p => (p && p.slug))
+    if (!normals.length) {
+      listEl.innerHTML = `<p style="color: var(--muted); margin: 0;">No regular posts found in this category yet.</p>`;
+    } else {
+      listEl.innerHTML = normals.map(postCard).join("");
+    }
+
+    let hot = posts
+      .filter(p => p && p.slug)
+      .filter(p => p.post_type === "pillar")
+      .slice(0, 3);
+
+    const viewed = posts
+      .filter(p => p && p.slug && Number(p.views || 0) > 0)
       .slice()
       .sort((a, b) => (Number(b.views) || 0) - (Number(a.views) || 0))
       .slice(0, 5);
+
+    for (const p of viewed) {
+      if (!hot.find(x => x.slug === p.slug)) hot.push(p);
+      if (hot.length >= 5) break;
+    }
+
+    if (hot.length < 5) {
+      for (const p of posts.sort((a, b) => dateKey(b) - dateKey(a))) {
+        if (p && p.slug && !hot.find(x => x.slug === p.slug)) {
+          hot.push(p);
+        }
+        if (hot.length >= 5) break;
+      }
+    }
 
     if (!hot.length) {
       hotWrap.innerHTML = `<div class="tiny-note">No posts yet</div>`;
@@ -244,7 +353,10 @@ function getParam(name) {
     hotWrap.innerHTML = hot.map(p => {
       const href = postHref(p);
       const v = (Number(p.views) || 0).toLocaleString();
-      return `<a class="hot-link" href="${href}"><span>${esc(p.title || "Untitled")}</span><span class="hot-views">${v}</span></a>`;
+      const badge = p.post_type === "pillar"
+        ? `<span class="pillar-badge">Guide</span>`
+        : "";
+      return `<a class="hot-link" href="${href}"><span>${esc(p.title || "Untitled")}</span><span class="hot-views">${v}</span>${badge}</a>`;
     }).join("");
   }
 
