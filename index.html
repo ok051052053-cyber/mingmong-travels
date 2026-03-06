@@ -77,8 +77,11 @@ align-items:start;
 grid-template-columns:minmax(0,1fr) 340px;
 gap:28px;
 }
+.hero-main{
+max-width:780px;
 }
-
+}
+  
 .hero-stats{
 display:grid;
 grid-template-columns:repeat(3,minmax(0,1fr));
@@ -230,6 +233,37 @@ grid-template-columns:1fr;
 .hero-side-stats{
 grid-template-columns:1fr 1fr;
 }
+.hero-title{
+  font-size:clamp(40px,5vw,78px);
+  line-height:1.03;
+  letter-spacing:-.05em;
+  margin:0 0 14px;
+  font-weight:950;
+}
+.hero-side-card{
+border:1px solid var(--border);
+border-radius:18px;
+background:#fff;
+box-shadow:var(--shadow);
+padding:18px;
+}
+
+.hero-side-links{
+display:grid;
+gap:10px;
+margin-bottom:12px;
+}
+
+.hero-side-guide{
+display:block;
+padding:14px;
+border:1px solid var(--border);
+border-radius:14px;
+background:#f8fafc;
+text-decoration:none;
+color:inherit;
+margin-top:0;
+}
 .section-row{
 align-items:flex-start;
 flex-direction:column;
@@ -284,21 +318,6 @@ Earn more with clear steps.
 <div class="hero-cta">
 <a class="btn primary" href="category.html?cat=AI%20Tools">Start with AI Tools</a>
 <a class="btn" href="category.html?cat=Make%20Money">Explore Make Money</a>
-</div>
-
-<div class="hero-stats" id="hero-stats">
-<div class="hero-stat">
-<span class="hero-stat-num" id="stat-posts">0</span>
-<span class="hero-stat-label">Published posts</span>
-</div>
-<div class="hero-stat">
-<span class="hero-stat-num" id="stat-guides">0</span>
-<span class="hero-stat-label">Featured guides</span>
-</div>
-<div class="hero-stat">
-<span class="hero-stat-num" id="stat-cats">4</span>
-<span class="hero-stat-label">Core categories</span>
-</div>
 </div>
 
 </div>
@@ -608,8 +627,7 @@ const latestWrap=document.getElementById("latest-list");
 const featuredMeta=document.getElementById("featured-meta");
 const latestMeta=document.getElementById("latest-meta");
 
-const statPosts=document.getElementById("stat-posts");
-const statGuides=document.getElementById("stat-guides");
+  
 const sidePosts=document.getElementById("side-posts");
 const sideGuides=document.getElementById("side-guides");
 const heroGuide=document.getElementById("hero-guide");
@@ -618,8 +636,7 @@ const heroGuideWrap=document.getElementById("hero-guide-wrap");
 const featured = posts.filter(p => p.post_type === "pillar").slice(0,6);
 const latest = posts.filter(p => p.post_type !== "pillar");
 
-if(statPosts) statPosts.textContent = String(posts.length);
-if(statGuides) statGuides.textContent = String(featured.length);
+  
 if(sidePosts) sidePosts.textContent = String(posts.length);
 if(sideGuides) sideGuides.textContent = String(featured.length);
 
