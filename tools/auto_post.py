@@ -1149,10 +1149,10 @@ def paragraphs_to_html(text: str) -> str:
     if not text:
         return ""
 
-    # **bold 제거
+    # markdown bold 제거
     text = text.replace("**", "")
 
-    # 번호 리스트 앞에 줄바꿈 강제
+    # 번호 리스트 줄바꿈 강제
     text = re.sub(r"\s*(\d+\.\s)", r"\n\n\1", text)
 
     parts = re.split(r"\n\s*\n+", text)
