@@ -42,20 +42,31 @@ jobs:
           SITE_URL: https://mingmonglife.com
           POSTS_PER_RUN: "1"
           MIN_CHARS: "3000"
-          MODEL: gpt-4o-mini
+          MODEL: "gpt-4o-mini"
+
           UNSPLASH_MIN_WIDTH: "2000"
           UNSPLASH_MIN_HEIGHT: "1200"
           UNSPLASH_MIN_LIKES: "60"
           UNSPLASH_PER_PAGE: "30"
+
           MAX_KEYWORD_TRIES: "12"
           MAX_GENERATE_ATTEMPTS: "3"
+
           TITLE_SIM_THRESHOLD: "0.88"
           KEYWORD_SIM_THRESHOLD: "0.82"
+
           AUTO_KEYWORD_BATCH: "24"
           MIN_KEYWORD_POOL: "18"
+
           CLUSTER_MODE: "1"
           CLUSTER_BATCH: "12"
           CLUSTER_ROTATION_WINDOW: "18"
+
+          PILLAR_INTERVAL: "8"
+          GOOGLE_SUGGEST_ENABLED: "1"
+          GOOGLE_SUGGEST_MAX_SEEDS: "8"
+          GOOGLE_SUGGEST_PER_QUERY: "8"
+          RELATED_POST_LIMIT: "4"
         run: |
           python tools/auto_post.py
 
