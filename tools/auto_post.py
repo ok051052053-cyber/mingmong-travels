@@ -17,12 +17,12 @@ from slugify import slugify
 # Paths
 # -----------------------------
 ROOT = Path(__file__).resolve().parents[1]
-POSTS_DIR = ROOT / "posts"                 # ✅ HTML 생성 폴더
+POSTS_DIR = ROOT / "posts"
 ASSETS_POSTS_DIR = ROOT / "assets" / "posts"
 POSTS_JSON = ROOT / "posts.json"
 KEYWORDS_JSON = ROOT / "keywords.json"
 USED_IMAGES_JSON = ROOT / "used_images.json"
-USED_TEXTS_JSON = ROOT / "used_texts.json"  # ✅ 중복 방지용 (신규)
+USED_TEXTS_JSON = ROOT / "used_texts.json"
 
 POSTS_DIR.mkdir(parents=True, exist_ok=True)
 ASSETS_POSTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -37,16 +37,11 @@ POSTS_PER_RUN = int(os.environ.get("POSTS_PER_RUN", "1"))
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "").strip()
 MODEL = os.environ.get("MODEL", "gpt-4o-mini").strip()
 
-# ✅ 분량 3000자 이상
 MIN_CHARS = int(os.environ.get("MIN_CHARS", "3000"))
-
-# ✅ 무조건 7장 고정
 IMG_COUNT = 7
-
 MAX_KEYWORD_TRIES = int(os.environ.get("MAX_KEYWORD_TRIES", "12"))
 
 UNSPLASH_ACCESS_KEY = os.environ.get("UNSPLASH_ACCESS_KEY", "").strip()
-
 HTTP_TIMEOUT = 35
 
 UNSPLASH_MIN_WIDTH = int(os.environ.get("UNSPLASH_MIN_WIDTH", "2000"))
@@ -54,35 +49,73 @@ UNSPLASH_MIN_HEIGHT = int(os.environ.get("UNSPLASH_MIN_HEIGHT", "1200"))
 UNSPLASH_MIN_LIKES = int(os.environ.get("UNSPLASH_MIN_LIKES", "60"))
 UNSPLASH_PER_PAGE = int(os.environ.get("UNSPLASH_PER_PAGE", "30"))
 
-# ✅ 중복 방지 파라미터
 TITLE_SIM_THRESHOLD = float(os.environ.get("TITLE_SIM_THRESHOLD", "0.88"))
 MAX_GENERATE_ATTEMPTS = int(os.environ.get("MAX_GENERATE_ATTEMPTS", "3"))
 
-# ✅✅ (추가) AdSense client id
-# 예: ca-pub-1234567890123456
 ADSENSE_CLIENT = os.environ.get("ADSENSE_CLIENT", "").strip()
 
-# ✅ 자동 주제 생성 파라미터
 KEYWORD_SIM_THRESHOLD = float(os.environ.get("KEYWORD_SIM_THRESHOLD", "0.82"))
 AUTO_KEYWORD_BATCH = int(os.environ.get("AUTO_KEYWORD_BATCH", "24"))
 MIN_KEYWORD_POOL = int(os.environ.get("MIN_KEYWORD_POOL", "18"))
 
+# 클러스터 자동화용
+CLUSTER_MODE = os.environ.get("CLUSTER_MODE", "1").strip() == "1"
+CLUSTER_BATCH = int(os.environ.get("CLUSTER_BATCH", "12"))
+CLUSTER_ROTATION_WINDOW = int(os.environ.get("CLUSTER_ROTATION_WINDOW", "18"))
+TOPIC_CLUSTERS_JSON = os.environ.get("TOPIC_CLUSTERS_JSON", "").strip()
+
 
 # -----------------------------
-# OpenAI (openai>=1.x only)
+# Defaults for topic clusters
+# -----------------------------
+DEFAULT_TOPIC_CLUSTERS = {
+    "AI Productivity": [
+        "ai email automation",
+        "ai meeting notes",
+        "ai workflow automation",
+        "ai report writing",
+        "ai document summarization",
+        "ai productivity tools",
+        "chatgpt work automation",
+        "ai tools for office work",
+    ],
+    "Freelance Operations": [
+        "freelance invoicing tools",
+        "freelance pricing strategy",
+        "proposal tools for freelancers",
+        "time tracking for freelancers",
+        "client onboarding workflow",
+        "freelance crm tools",
+        "freelance admin automation",
+        "tools for solo freelancers",
+    ],
+    "Creator Monetization": [
+        "newsletter platforms for creators",
+        "gumroad digital products",
+        "sell notion templates",
+        "creator monetization tools",
+        "digital products for beginners",
+        "email list monetization",
+        "creator workflow tools",
+        "paid newsletter platforms",
+    ],
+}
+
+
+# -----------------------------
+# OpenAI
 # -----------------------------
 def openai_generate_text(prompt: str) -> str:
     if not OPENAI_API_KEY:
         raise RuntimeError("Missing OPENAI_API_KEY")
 
     try:
-        from openai import OpenAI  # openai>=1.x
+        from openai import OpenAI
     except Exception as e:
         raise RuntimeError(f"OpenAI package import failed: {e}")
 
     client = OpenAI(api_key=OPENAI_API_KEY)
 
-    # Responses API
     try:
         res = client.responses.create(model=MODEL, input=prompt)
         text = (res.output_text or "").strip()
@@ -91,7 +124,6 @@ def openai_generate_text(prompt: str) -> str:
     except Exception:
         pass
 
-    # Chat Completions fallback
     try:
         res = client.chat.completions.create(
             model=MODEL,
@@ -178,9 +210,6 @@ def safe_write(path: Path, content: str) -> None:
 
 
 def _json_extract(s: str) -> str:
-    """
-    모델이 앞뒤로 잡담 붙여도 JSON만 뽑아내기
-    """
     s = (s or "").strip()
     if not s:
         return s
@@ -265,12 +294,10 @@ def is_search_intent_keyword(keyword: str) -> bool:
     if not k:
         return False
 
-    # 너무 짧거나 너무 길면 제외
     words = k.split()
     if len(words) < 4 or len(words) > 14:
         return False
 
-    # 정보성/구매의도/비교성/실행성 키워드 우대
     intent_tokens = [
         "best", "top", "vs", "versus", "compare", "comparison",
         "how to", "tool", "tools", "app", "apps",
@@ -280,7 +307,6 @@ def is_search_intent_keyword(keyword: str) -> bool:
     if not any(tok in k for tok in intent_tokens):
         return False
 
-    # 너무 광범위한 키워드 제거
     broad_bad = {
         "ai", "productivity", "freelancing", "remote work", "email",
         "automation", "marketing", "notion", "chatgpt"
@@ -288,7 +314,6 @@ def is_search_intent_keyword(keyword: str) -> bool:
     if k in broad_bad:
         return False
 
-    # 구식 연도 차단
     if re.search(r"\b(2019|2020|2021|2022|2023|2024)\b", k):
         return False
 
@@ -339,7 +364,133 @@ def dedupe_keywords(keywords: List[str], existing_titles: List[str], existing_ke
     return out
 
 
-def build_keyword_prompt(seed_keywords: List[str], existing_titles: List[str], existing_keywords: List[str]) -> str:
+def load_topic_clusters() -> Dict[str, List[str]]:
+    if TOPIC_CLUSTERS_JSON:
+        try:
+            raw = json.loads(TOPIC_CLUSTERS_JSON)
+            if isinstance(raw, dict):
+                out = {}
+                for k, v in raw.items():
+                    if isinstance(k, str) and isinstance(v, list):
+                        out[k] = [str(x).strip() for x in v if str(x).strip()]
+                if out:
+                    return out
+        except Exception:
+            pass
+    return DEFAULT_TOPIC_CLUSTERS
+
+
+def get_existing_keywords_from_posts(posts: List[dict]) -> List[str]:
+    out = []
+    for p in posts:
+        if not isinstance(p, dict):
+            continue
+        for key in ["keyword", "title", "slug", "description"]:
+            val = p.get(key)
+            if isinstance(val, str) and val.strip():
+                out.append(val.strip())
+    return out
+
+
+def pick_next_cluster(posts: List[dict], topic_clusters: Dict[str, List[str]]) -> str:
+    names = list(topic_clusters.keys())
+    if not names:
+        return "AI Productivity"
+
+    recent = posts[:CLUSTER_ROTATION_WINDOW] if posts else []
+    counts = {name: 0 for name in names}
+
+    for p in recent:
+        if not isinstance(p, dict):
+            continue
+        cluster = p.get("cluster")
+        if isinstance(cluster, str) and cluster in counts:
+            counts[cluster] += 1
+
+    min_count = min(counts.values()) if counts else 0
+    candidates = [name for name, c in counts.items() if c == min_count]
+    return random.choice(candidates) if candidates else names[0]
+
+
+def build_cluster_keyword_prompt(
+    cluster_name: str,
+    seed_keywords: List[str],
+    existing_titles: List[str],
+    existing_keywords: List[str],
+) -> str:
+    seed_block = "\n".join([f"- {x}" for x in seed_keywords[:30]]) or "- ai productivity tools"
+    title_block = "\n".join([f"- {x}" for x in existing_titles[:60]])
+    existing_kw_block = "\n".join([f"- {x}" for x in existing_keywords[:100]])
+
+    return f"""
+You generate SEO blog topic keywords for a site targeting US and EU readers.
+
+Current cluster:
+{cluster_name}
+
+Need:
+- exactly {CLUSTER_BATCH} keyword ideas
+- long-tail keywords only
+- practical search intent only
+- suitable for a newer niche blog
+- not too broad
+- not duplicate with existing topics
+- no outdated years
+- no news
+- no politics
+- no medical or legal advice
+- no generic definitions
+
+These topic patterns are preferred:
+- best X for Y
+- X vs Y for Z
+- how to do X with Y
+- alternatives to X for Y
+- best X under $N
+- templates, workflows, systems, automations, comparisons
+
+Cluster seed keywords:
+{seed_block}
+
+Avoid topics too similar to these existing post titles:
+{title_block if title_block else "- none"}
+
+Avoid topics too similar to these existing keywords:
+{existing_kw_block if existing_kw_block else "- none"}
+
+Return valid JSON only:
+{{
+  "keywords": [
+    "keyword 1",
+    "keyword 2"
+  ]
+}}
+""".strip()
+
+
+def generate_cluster_keywords(
+    cluster_name: str,
+    seed_keywords: List[str],
+    existing_titles: List[str],
+    existing_keywords: List[str],
+) -> List[str]:
+    prompt = build_cluster_keyword_prompt(cluster_name, seed_keywords, existing_titles, existing_keywords)
+    raw = openai_generate_text(prompt)
+    data = json.loads(_json_extract(raw))
+
+    kws = data.get("keywords") or []
+    if not isinstance(kws, list):
+        return []
+
+    clean = []
+    for kw in kws:
+        if isinstance(kw, str) and kw.strip():
+            clean.append(_clean_text(kw))
+
+    return dedupe_keywords(clean, existing_titles, existing_keywords)
+
+
+def build_general_keyword_prompt(seed_keywords: List[str], existing_titles: List[str], existing_keywords: List[str]) -> str:
     seed_block = "\n".join([f"- {x}" for x in seed_keywords[:30]]) or "- ai productivity tools"
     title_block = "\n".join([f"- {x}" for x in existing_titles[:50]])
     existing_kw_block = "\n".join([f"- {x}" for x in existing_keywords[:80]])
@@ -392,7 +543,7 @@ Return valid JSON only:
 
 
 def generate_auto_keywords(seed_keywords: List[str], existing_titles: List[str], existing_keywords: List[str]) -> List[str]:
-    prompt = build_keyword_prompt(seed_keywords, existing_titles, existing_keywords)
+    prompt = build_general_keyword_prompt(seed_keywords, existing_titles, existing_keywords)
     raw = openai_generate_text(prompt)
     data = json.loads(_json_extract(raw))
 
@@ -432,19 +583,36 @@ def save_keywords(keywords: List[str]) -> None:
     save_json(KEYWORDS_JSON, {"keywords": unique})
 
 
-def build_keyword_pool(base_keywords: List[str], existing_titles: List[str], posts: List[dict]) -> List[str]:
-    existing_keywords = []
-    for p in posts:
-        if not isinstance(p, dict):
-            continue
-        for key in ["keyword", "title", "slug", "description"]:
-            val = p.get(key)
-            if isinstance(val, str) and val.strip():
-                existing_keywords.append(val.strip())
-
+def build_keyword_pool(base_keywords: List[str], existing_titles: List[str], posts: List[dict]) -> Tuple[List[str], str]:
+    existing_keywords = get_existing_keywords_from_posts(posts)
     clean_base = dedupe_keywords(base_keywords, existing_titles, existing_keywords)
 
-    # 풀 크기가 작으면 자동 생성
+    if CLUSTER_MODE:
+        topic_clusters = load_topic_clusters()
+        cluster_name = pick_next_cluster(posts, topic_clusters)
+        seeds = topic_clusters.get(cluster_name) or []
+        merged_seed = clean_base + seeds
+        merged_seed = [x for x in merged_seed if isinstance(x, str) and x.strip()]
+
+        try:
+            cluster_keywords = generate_cluster_keywords(
+                cluster_name=cluster_name,
+                seed_keywords=merged_seed,
+                existing_titles=existing_titles,
+                existing_keywords=existing_keywords,
+            )
+            if cluster_keywords:
+                merged_all = clean_base + cluster_keywords
+                merged_all = dedupe_keywords(merged_all, existing_titles, existing_keywords)
+                save_keywords(merged_all)
+                pool = [kw for kw in merged_all if not title_too_similar(kw, existing_titles, KEYWORD_SIM_THRESHOLD)]
+                return pool, cluster_name
+        except Exception as e:
+            print("Cluster keyword generation failed:", e)
+
+        fallback = dedupe_keywords(seeds + clean_base, existing_titles, existing_keywords)
+        return fallback, cluster_name
+
     auto_keywords: List[str] = []
     if len(clean_base) < MIN_KEYWORD_POOL:
         try:
@@ -453,11 +621,11 @@ def build_keyword_pool(base_keywords: List[str], existing_titles: List[str], pos
                 merged = clean_base + auto_keywords
                 merged = dedupe_keywords(merged, existing_titles, existing_keywords)
                 save_keywords(merged)
-                return merged
+                return merged, "General"
         except Exception as e:
             print("Auto keyword generation failed:", e)
 
-    return clean_base
+    return clean_base, "General"
 
 
 # -----------------------------
@@ -488,6 +656,10 @@ def pick_high_quality_unsplash(results: List[dict], used_ids: set) -> List[dict]
             pid = item.get("id")
             if not pid or pid in used_ids:
                 continue
+
+                w = int(item.get("width") or 0)
+                h = int(item.get("height") or 0)
+                likes = int(item.get("likes") or 0)
 
             w = int(item.get("width") or 0)
             h = int(item.get("height") or 0)
@@ -534,11 +706,6 @@ def download_unsplash_photo(item: dict, out_path: Path) -> None:
 
 
 def get_high_quality_photos_for_queries(slug: str, queries: List[str]) -> Tuple[List[str], List[str]]:
-    """
-    ✅ 이미지 7장
-    ✅ 각 이미지마다 query를 따로 사용해서 관련성 올림
-    ✅ AI 이미지 절대 없음
-    """
     if not UNSPLASH_ACCESS_KEY:
         raise RuntimeError("Missing UNSPLASH_ACCESS_KEY")
 
@@ -600,13 +767,7 @@ def get_high_quality_photos_for_queries(slug: str, queries: List[str]) -> Tuple[
 # -----------------------------
 # Writing (JSON output)
 # -----------------------------
-def build_prompt(keyword: str, avoid_titles: List[str]) -> str:
-    """
-    ✅ 7개 섹션
-    ✅ 섹션 분량 비슷
-    ✅ 각 섹션마다 이미지 검색 키워드 제공
-    ✅ 중복 제목 피하기
-    """
+def build_prompt(keyword: str, avoid_titles: List[str], cluster_name: str) -> str:
     avoid_block = ""
     if avoid_titles:
         recent = avoid_titles[:30]
@@ -615,6 +776,7 @@ def build_prompt(keyword: str, avoid_titles: List[str]) -> str:
     return f"""
 You are writing for US and EU readers.
 
+Topic cluster: "{cluster_name}"
 Topic keyword: "{keyword}"
 {avoid_block}
 Output MUST be valid JSON only.
@@ -648,7 +810,8 @@ Hard rules:
 - Each section must match its image_query.
 - Use simple plain English.
 - Make this article clearly different from other generic "best tools" posts.
-- Focus on a specific user problem and practical workflows.
+- Focus on one specific user problem and practical workflows.
+- Align the article with the cluster "{cluster_name}".
 """.strip()
 
 
@@ -772,7 +935,6 @@ def render_post_html(
 
     article_html = "\n".join([b for b in blocks if b])
 
-    # ✅✅ (추가) AdSense 스크립트는 head에 들어가야 함
     adsense_tag = ""
     if ADSENSE_CLIENT:
         adsense_tag = f"""
@@ -894,6 +1056,7 @@ def add_post_to_index(
     image_paths: List[str],
     created_iso: str,
     keyword: str,
+    cluster: str,
 ) -> None:
     thumb = image_paths[0] if image_paths else ""
 
@@ -902,13 +1065,14 @@ def add_post_to_index(
         "slug": slug,
         "category": category,
         "description": description,
-        "date": created_iso,       # ✅ 시간 포함
-        "updated": created_iso,    # ✅ 시간 포함
+        "date": created_iso,
+        "updated": created_iso,
         "thumbnail": thumb,
         "image": thumb,
         "url": f"posts/{slug}.html",
         "views": 0,
-        "keyword": keyword
+        "keyword": keyword,
+        "cluster": cluster
     })
 
 
@@ -919,7 +1083,7 @@ def main() -> int:
     existing_slugs = set(p.get("slug") for p in posts if isinstance(p, dict))
     existing_titles = [p.get("title", "") for p in posts if isinstance(p, dict) and p.get("title")]
 
-    keyword_pool = build_keyword_pool(base_keywords, existing_titles, posts)
+    keyword_pool, cluster_name = build_keyword_pool(base_keywords, existing_titles, posts)
     if not keyword_pool:
         print("No keyword pool available.")
         return 0
@@ -949,7 +1113,7 @@ def main() -> int:
 
         data = None
         for attempt in range(1, MAX_GENERATE_ATTEMPTS + 1):
-            prompt = build_prompt(keyword, avoid_titles=existing_titles)
+            prompt = build_prompt(keyword, avoid_titles=existing_titles, cluster_name=cluster_name)
             raw = openai_generate_text(prompt)
 
             try:
@@ -1021,6 +1185,7 @@ def main() -> int:
             image_paths=image_paths,
             created_iso=created_iso,
             keyword=keyword,
+            cluster=cluster_name,
         )
         existing_slugs.add(slug)
         existing_titles.insert(0, title)
@@ -1030,6 +1195,7 @@ def main() -> int:
 
         print(f"Generated HTML: posts/{slug}.html")
         print(f"Source keyword: {keyword}")
+        print(f"Topic cluster: {cluster_name}")
         made += 1
 
     if made == 0:
