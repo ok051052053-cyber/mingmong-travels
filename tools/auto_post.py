@@ -37,7 +37,7 @@ POSTS_PER_RUN = int(os.environ.get("POSTS_PER_RUN", "1"))
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "").strip()
 MODEL = os.environ.get("MODEL", "gpt-4o-mini").strip()
 
-MIN_CHARS = int(os.environ.get("MIN_CHARS", "3000"))
+MIN_CHARS = int(os.environ.get("MIN_CHARS", "4200"))
 IMG_COUNT = 7
 MAX_KEYWORD_TRIES = int(os.environ.get("MAX_KEYWORD_TRIES", "12"))
 
@@ -69,64 +69,106 @@ GOOGLE_SUGGEST_MAX_SEEDS = int(os.environ.get("GOOGLE_SUGGEST_MAX_SEEDS", "8"))
 GOOGLE_SUGGEST_PER_QUERY = int(os.environ.get("GOOGLE_SUGGEST_PER_QUERY", "8"))
 RELATED_POST_LIMIT = int(os.environ.get("RELATED_POST_LIMIT", "4"))
 
+MIN_SECTION_CHARS = int(os.environ.get("MIN_SECTION_CHARS", "420"))
+
+# -----------------------------
+# Generic-content blockers
+# -----------------------------
+BANNED_TITLE_PATTERNS = [
+    "best ",
+    "top ",
+    "ultimate guide",
+    "comprehensive guide",
+    "essential guide",
+    "must-have",
+    "must have",
+    "complete guide",
+    "top productivity tools",
+    "best ai tools for",
+    "top ai tools for",
+    "best apps for",
+    "best tools for",
+]
+
+BANNED_OPENING_PHRASES = [
+    "ai is transforming",
+    "in today's fast-paced world",
+    "in today’s fast-paced world",
+    "in today's digital world",
+    "in today’s digital world",
+    "productivity is important",
+    "freelancers need the right tools",
+    "small business owners need the right tools",
+    "there are many tools available",
+    "in the modern workplace",
+]
+
+REQUIRED_CONTENT_SIGNALS = [
+    "workflow",
+    "checklist",
+    "mistake",
+    "tradeoff",
+    "decision",
+    "step",
+]
 
 # -----------------------------
 # Defaults for topic clusters
 # -----------------------------
 DEFAULT_TOPIC_CLUSTERS = {
     "AI Productivity": [
-        "ai email automation",
-        "ai meeting notes",
-        "ai workflow automation",
-        "ai report writing",
-        "ai document summarization",
-        "ai productivity tools",
-        "chatgpt work automation",
-        "ai tools for office work",
+        "ai email automation workflow",
+        "ai meeting notes to task workflow",
+        "ai report writing workflow",
+        "ai document summarization for work",
+        "chatgpt workflow for solo work",
+        "ai tools for office workflows",
+        "ai stack for repetitive admin work",
+        "ai automation for weekly planning",
     ],
     "Freelance Operations": [
-        "freelance invoicing tools",
-        "freelance pricing strategy",
-        "proposal tools for freelancers",
-        "time tracking for freelancers",
+        "freelance invoicing workflow",
+        "freelance pricing system",
+        "proposal workflow for freelancers",
+        "time tracking system for freelancers",
         "client onboarding workflow",
-        "freelance crm tools",
+        "freelance crm workflow",
         "freelance admin automation",
-        "tools for solo freelancers",
+        "solo freelancer operating system",
     ],
     "Creator Monetization": [
-        "newsletter platforms for creators",
-        "gumroad digital products",
-        "sell notion templates",
-        "creator monetization tools",
-        "digital products for beginners",
-        "email list monetization",
-        "creator workflow tools",
-        "paid newsletter platforms",
+        "newsletter monetization system",
+        "gumroad digital product workflow",
+        "sell notion templates workflow",
+        "creator monetization system",
+        "digital products for beginners workflow",
+        "email list monetization workflow",
+        "creator operations system",
+        "paid newsletter monetization playbook",
     ],
 }
 
 DEFAULT_PILLAR_TOPICS = {
     "AI Productivity": [
-        "best ai tools for work",
-        "best ai productivity tools for professionals",
-        "how to automate office work with ai",
-        "complete guide to ai tools for remote work",
         "ai workflow automation for solo workers",
+        "how to build an ai system for repetitive work",
+        "practical ai workflows for knowledge workers",
+        "how to automate weekly office work with ai",
+        "ai operating system for one person businesses",
     ],
     "Freelance Operations": [
-        "best tools for freelancers",
-        "ultimate guide to freelance operations",
-        "how to run a freelance business efficiently",
-        "best freelance workflow tools",
-        "freelance systems for solo professionals",
+        "how to run a freelance business with systems",
+        "freelance operations system for solo professionals",
+        "how freelancers can reduce admin work",
+        "practical freelance workflows that save time",
+        "freelance business systems for one person businesses",
     ],
     "Creator Monetization": [
-        "complete guide to creator monetization",
-        "best tools for digital creators",
-        "how to make money with digital products",
-        "creator business tools for beginners",
-        "best platforms for creators to monetize",
+        "how creators can build monetization systems",
+        "digital product systems for beginner creators",
+        "creator operations playbook for small audiences",
+        "how to make money with digital products using systems",
+        "newsletter and digital product monetization workflow",
     ],
 }
 
@@ -157,7 +199,14 @@ def openai_generate_text(prompt: str) -> str:
         res = client.chat.completions.create(
             model=MODEL,
             messages=[
-                {"role": "system", "content": "You write helpful detailed accurate blog posts and SEO keyword lists."},
+                {
+                    "role": "system",
+                    "content": (
+                        "You write deeply useful blog content. "
+                        "You avoid generic listicles and shallow SEO filler. "
+                        "You return valid JSON when asked."
+                    ),
+                },
                 {"role": "user", "content": prompt},
             ],
             temperature=0.7,
@@ -233,17 +282,19 @@ def _json_extract(s: str) -> str:
     s = re.sub(r"^```(json)?\s*", "", s, flags=re.IGNORECASE)
     s = re.sub(r"\s*```$", "", s)
 
-    i = s.find("{")
-    j = s.rfind("}")
-    if i >= 0 and j > i:
-        return s[i:j + 1]
+    i_obj = s.find("{")
+    j_obj = s.rfind("}")
+    if i_obj >= 0 and j_obj > i_obj:
+        return s[i_obj:j_obj + 1]
+
     return s
 
 
 def _clean_text(s: str) -> str:
     s = (s or "").strip()
     s = re.sub(r"\s+\n", "\n", s)
-    return s
+    s = re.sub(r"[ \t]+", " ", s)
+    return s.strip()
 
 
 def _norm_title(s: str) -> str:
@@ -275,7 +326,7 @@ def make_fingerprint(title: str, sections: List[Dict[str, str]], tldr: str, faq:
     parts = [title.strip(), (tldr or "").strip()[:400]]
     for s in sections[:IMG_COUNT]:
         parts.append((s.get("heading") or "").strip())
-        parts.append((s.get("body") or "").strip()[:400])
+        parts.append((s.get("body") or "").strip()[:500])
     for item in (faq or [])[:5]:
         parts.append((item.get("q") or "").strip()[:200])
         parts.append((item.get("a") or "").strip()[:200])
@@ -350,6 +401,78 @@ def get_cluster_pillar(posts: List[dict], cluster_name: str) -> dict:
     return {}
 
 
+def is_generic_title(title: str) -> bool:
+    t = _norm_title(title)
+    if not t:
+        return True
+    for bad in BANNED_TITLE_PATTERNS:
+        if bad.strip().lower() in t:
+            return True
+    if len(t.split()) < 6:
+        return True
+    return False
+
+
+def opening_too_generic(text: str) -> bool:
+    t = (text or "").lower().strip()[:500]
+    return any(p in t for p in BANNED_OPENING_PHRASES)
+
+
+def quality_check_post(data: Dict[str, Any], keyword: str = "") -> Tuple[bool, str]:
+    title = data.get("title", "")
+    tldr = data.get("tldr", "")
+    sections = data.get("sections", [])
+    faq = data.get("faq", [])
+
+    if is_generic_title(title):
+        return False, "generic-title"
+
+    if not isinstance(sections, list) or len(sections) != IMG_COUNT:
+        return False, "bad-sections"
+
+    total_text = []
+    total_text.append(title)
+    total_text.append(tldr)
+    for s in sections:
+        total_text.append(s.get("heading", ""))
+        total_text.append(s.get("body", ""))
+    for item in faq:
+        total_text.append(item.get("q", ""))
+        total_text.append(item.get("a", ""))
+
+    joined = "\n".join(total_text).lower()
+
+    if len(joined) < MIN_CHARS:
+        return False, "too-short"
+
+    if opening_too_generic(tldr + "\n" + (sections[0].get("body", "") if sections else "")):
+        return False, "generic-opening"
+
+    section_bodies = [s.get("body", "") for s in sections]
+    if any(len((b or "").strip()) < MIN_SECTION_CHARS for b in section_bodies):
+        return False, "thin-section"
+
+    signal_hits = sum(1 for x in REQUIRED_CONTENT_SIGNALS if x in joined)
+    if signal_hits < 4:
+        return False, "missing-depth-signals"
+
+    if "who this is for" not in joined and "this workflow is for" not in joined and "this setup is for" not in joined:
+        return False, "missing-audience-framing"
+
+    if "mistake" not in joined and "common pitfall" not in joined and "go wrong" not in joined:
+        return False, "missing-mistakes"
+
+    if "checklist" not in joined and "template" not in joined and "copy this" not in joined:
+        return False, "missing-template-checklist"
+
+    nk = normalize_keyword(keyword)
+    nt = normalize_keyword(title)
+    if nk and nt and nk == nt:
+        return False, "title-too-close-to-keyword"
+
+    return True, "ok"
+
+
 # -----------------------------
 # Keyword automation
 # -----------------------------
@@ -377,27 +500,63 @@ def is_search_intent_keyword(keyword: str) -> bool:
         return False
 
     words = k.split()
-    if len(words) < 4 or len(words) > 16:
+    if len(words) < 4 or len(words) > 18:
         return False
 
-    intent_tokens = [
-        "best", "top", "vs", "versus", "compare", "comparison",
-        "how to", "tool", "tools", "app", "apps",
-        "software", "platform", "template", "templates",
-        "for", "under", "without", "with", "alternative", "alternatives",
-        "guide", "workflow", "workflows"
-    ]
-    if not any(tok in k for tok in intent_tokens):
+    if re.search(r"\b(2019|2020|2021|2022|2023|2024)\b", k):
         return False
 
     broad_bad = {
-        "ai", "productivity", "freelancing", "remote work", "email",
-        "automation", "marketing", "notion", "chatgpt"
+        "ai",
+        "productivity",
+        "freelancing",
+        "remote work",
+        "email",
+        "automation",
+        "marketing",
+        "notion",
+        "chatgpt",
     }
     if k in broad_bad:
         return False
 
-    if re.search(r"\b(2019|2020|2021|2022|2023|2024)\b", k):
+    vague_bad = [
+        "best ai tools for",
+        "top ai tools for",
+        "best tools for",
+        "best apps for",
+        "ultimate guide to",
+        "comprehensive guide to",
+        "essential guide to",
+    ]
+    if any(x in k for x in vague_bad):
+        return False
+
+    intent_tokens = [
+        "workflow",
+        "system",
+        "playbook",
+        "template",
+        "checklist",
+        "process",
+        "automation",
+        "set up",
+        "how to",
+        "reduce",
+        "save time",
+        "client onboarding",
+        "invoice",
+        "proposal",
+        "newsletter",
+        "digital product",
+        "meeting notes",
+        "task workflow",
+        "weekly planning",
+        "content repurposing",
+        "one person",
+        "solo",
+    ]
+    if not any(tok in k for tok in intent_tokens):
         return False
 
     return True
@@ -518,7 +677,7 @@ def build_cluster_keyword_prompt(
     existing_titles: List[str],
     existing_keywords: List[str],
 ) -> str:
-    seed_block = "\n".join([f"- {x}" for x in seed_keywords[:30]]) or "- ai productivity tools"
+    seed_block = "\n".join([f"- {x}" for x in seed_keywords[:30]]) or "- ai workflow automation for solo workers"
     title_block = "\n".join([f"- {x}" for x in existing_titles[:60]])
     existing_kw_block = "\n".join([f"- {x}" for x in existing_keywords[:100]])
 
@@ -533,21 +692,23 @@ Need:
 - long-tail keywords only
 - practical search intent only
 - suitable for a newer niche blog
-- not too broad
-- not duplicate with existing topics
 - no outdated years
 - no news
 - no politics
 - no medical or legal advice
-- no generic definitions
+- no broad listicle topics
+- no generic "best tools for X" patterns
+- topics must sound like a real operating problem or workflow
 
-These topic patterns are preferred:
-- best X for Y
-- X vs Y for Z
-- how to do X with Y
-- alternatives to X for Y
-- best X under $N
-- templates, workflows, systems, automations, comparisons
+Prefer topic patterns like:
+- how to build a workflow for X
+- X system for Y
+- X checklist for Y
+- X playbook for Y
+- how to reduce X using Y
+- how to turn X into Y with AI
+- setup guides for one specific situation
+- decision frameworks for one specific buyer
 
 Cluster seed keywords:
 {seed_block}
@@ -591,7 +752,7 @@ def generate_cluster_keywords(
 
 
 def build_general_keyword_prompt(seed_keywords: List[str], existing_titles: List[str], existing_keywords: List[str]) -> str:
-    seed_block = "\n".join([f"- {x}" for x in seed_keywords[:30]]) or "- ai productivity tools"
+    seed_block = "\n".join([f"- {x}" for x in seed_keywords[:30]]) or "- ai workflow automation for solo workers"
     title_block = "\n".join([f"- {x}" for x in existing_titles[:50]])
     existing_kw_block = "\n".join([f"- {x}" for x in existing_keywords[:80]])
 
@@ -599,9 +760,9 @@ def build_general_keyword_prompt(seed_keywords: List[str], existing_titles: List
 You generate SEO blog topic keywords for a site targeting US and EU readers.
 
 Site focus:
-1. AI productivity for work
+1. AI systems for real work
 2. Freelance operations
-3. Creator monetization
+3. Creator monetization systems
 
 Need:
 - exactly {AUTO_KEYWORD_BATCH} keyword ideas
@@ -613,15 +774,18 @@ Need:
 - no outdated years
 - no celebrity or news topics
 - no medical, legal, political, or unsafe topics
-- no generic topics like "what is ai"
+- no generic definitions
+- no broad listicle topics like "best ai tools for students"
 
 Good patterns:
-- best X for Y
-- X vs Y for Z
-- how to do X with Y
-- best X under $N
-- alternatives to X for Y
-- templates, workflows, automations, comparisons
+- how to build X workflow
+- X system for Y
+- X checklist for Y
+- how to reduce X using Y
+- how to turn X into Y
+- decision framework for choosing X
+- template based workflow topics
+- one specific problem for one specific reader
 
 Seed keywords:
 {seed_block}
@@ -690,10 +854,11 @@ def expand_keywords_from_google(seeds: List[str], existing_titles: List[str], ex
     for seed in base_seeds:
         variants = [
             seed,
-            f"best {seed}",
-            f"{seed} for",
-            f"{seed} vs",
+            f"{seed} workflow",
+            f"{seed} system",
             f"how to {seed}",
+            f"{seed} checklist",
+            f"{seed} template",
         ]
         for q in variants:
             pool.extend(fetch_google_suggest(q))
@@ -953,10 +1118,7 @@ def select_related_posts(
             score += 100
         score += min(int(p.get("views") or 0), 50)
 
-        date_bonus = 0
-        ds = str(p.get("updated") or p.get("date") or "")
-        if ds:
-            date_bonus = 1
+        date_bonus = 1 if str(p.get("updated") or p.get("date") or "") else 0
         score += date_bonus
 
         scored.append((score, p))
@@ -1006,38 +1168,254 @@ def render_related_guides_html(related_posts: List[dict]) -> str:
 
 
 # -----------------------------
-# Writing (JSON output)
+# Writing pipeline
 # -----------------------------
-def build_prompt(keyword: str, avoid_titles: List[str], cluster_name: str, post_type: str) -> str:
-    avoid_block = ""
-    if avoid_titles:
-        recent = avoid_titles[:30]
-        avoid_block = "\nAvoid titles that are the same as or very similar to these:\n- " + "\n- ".join(recent) + "\n"
+def build_strategy_prompt(keyword: str, avoid_titles: List[str], cluster_name: str, post_type: str) -> str:
+    avoid_block = "\n".join([f"- {x}" for x in avoid_titles[:30]]) if avoid_titles else "- none"
+    category_hint = pick_category(keyword=keyword, cluster_name=cluster_name, post_type=post_type)
 
-    extra = ""
     if post_type == "pillar":
         extra = """
-- This is a pillar guide.
-- Make it broader and more authoritative than a normal post.
-- Cover the landscape clearly for beginners and intermediate readers.
-- Include comparisons, decision frameworks, common mistakes, and practical next steps.
-- The title should feel like a definitive guide, not a tiny subtopic.
+This is a pillar guide.
+It should still be deep and practical.
+It should explain systems and decision logic clearly.
+It must not sound like a generic encyclopedia article.
 """.strip()
     else:
         extra = """
-- This is a cluster article.
-- Focus on one specific problem and solve it clearly.
-- Make it more practical than a generic roundup.
-- Include workflows, decision points, and concrete use cases.
+This is a cluster article.
+It should focus on one sharp operating problem.
+It should solve one real situation in detail.
 """.strip()
 
     return f"""
-You are writing for US and EU readers.
+You are planning a deep blog article for US and EU readers.
 
-Topic cluster: "{cluster_name}"
-Topic keyword: "{keyword}"
-Post type: "{post_type}"
+Cluster:
+{cluster_name}
+
+Seed keyword:
+{keyword}
+
+Preferred category:
+{category_hint}
+
+Avoid titles too similar to:
 {avoid_block}
+
+Return valid JSON only.
+
+Schema:
+{{
+  "audience": "specific reader type",
+  "problem": "specific painful situation",
+  "outcome": "clear promised result",
+  "angle": "specific article angle",
+  "title": "specific practical title",
+  "description": "155-170 chars meta description not equal to title",
+  "category": "AI Tools|Make Money|Productivity|Reviews",
+  "intent": "pillar|cluster",
+  "search_intent_summary": "one sentence"
+}}
+
+Hard rules:
+- Do not use title patterns like Best, Top, Ultimate Guide, Comprehensive Guide, Essential Guide, Must-Have
+- The title must not simply restate the seed keyword
+- The title must sound like a workflow, system, checklist, playbook, framework, setup, or operating guide
+- Avoid vague audiences like everyone, professionals, business owners
+- Use a sharper audience such as solo creator, freelance designer, one person consultancy, remote operator, junior marketer, newsletter writer
+- Focus on one real situation not a generic roundup
+- The angle must feel more specific than common search results
+- The article should promise a process or decision framework not a list of tools
+
+{extra}
+""".strip()
+
+
+def parse_strategy_json(text: str, keyword: str = "", cluster_name: str = "", post_type: str = "") -> Dict[str, str]:
+    raw = _json_extract(text)
+    data = json.loads(raw)
+
+    if not isinstance(data, dict):
+        raise ValueError("strategy JSON root is not object")
+
+    audience = _clean_text(data.get("audience", ""))
+    problem = _clean_text(data.get("problem", ""))
+    outcome = _clean_text(data.get("outcome", ""))
+    angle = _clean_text(data.get("angle", ""))
+    title = _clean_text(data.get("title", ""))
+    description = _clean_text(data.get("description", ""))
+    category = _clean_text(data.get("category", ""))
+    intent = _clean_text(data.get("intent", post_type or "cluster"))
+    search_intent_summary = _clean_text(data.get("search_intent_summary", ""))
+
+    if not audience or not problem or not outcome or not angle or not title:
+        raise ValueError("strategy fields missing")
+
+    if category not in {"AI Tools", "Make Money", "Productivity", "Reviews"}:
+        category = pick_category(keyword=keyword, cluster_name=cluster_name, post_type=post_type)
+
+    if not description:
+        description = short_desc(f"{angle}. {outcome}")
+
+    return {
+        "audience": audience,
+        "problem": problem,
+        "outcome": outcome,
+        "angle": angle,
+        "title": title,
+        "description": description,
+        "category": category,
+        "intent": intent or post_type,
+        "search_intent_summary": search_intent_summary or angle,
+    }
+
+
+def build_outline_prompt(strategy: Dict[str, str], keyword: str, cluster_name: str, post_type: str) -> str:
+    return f"""
+You are creating a detailed article outline.
+
+Seed keyword:
+{keyword}
+
+Cluster:
+{cluster_name}
+
+Post type:
+{post_type}
+
+Strategy:
+{json.dumps(strategy, ensure_ascii=False, indent=2)}
+
+Return valid JSON only.
+
+Schema:
+{{
+  "title": "must match strategy title",
+  "description": "must match strategy description",
+  "category": "AI Tools|Make Money|Productivity|Reviews",
+  "sections": [
+    {{
+      "heading": "section heading",
+      "goal": "what this section must achieve",
+      "image_query": "2-6 words concrete photo idea",
+      "must_include": [
+        "point 1",
+        "point 2"
+      ]
+    }}
+  ],
+  "faq_questions": [
+    "question 1",
+    "question 2"
+  ],
+  "tldr_focus": [
+    "point 1",
+    "point 2"
+  ]
+}}
+
+Hard rules:
+- Exactly {IMG_COUNT} sections
+- The 7 sections should roughly follow this depth:
+  1. sharp setup and who this is for
+  2. why common advice fails
+  3. the workflow or system map
+  4. setup steps
+  5. decision rules or tool choice logic
+  6. common mistakes and tradeoffs
+  7. checklist or template plus when not to use this setup
+- Every section must have concrete must_include bullets
+- No generic section headings like Introduction, Conclusion, Benefits
+- image_query must be visual and photo-friendly
+- Keep the angle narrow and practical
+- FAQ questions should be realistic follow-up questions
+""".strip()
+
+
+def parse_outline_json(text: str, strategy: Dict[str, str]) -> Dict[str, Any]:
+    raw = _json_extract(text)
+    data = json.loads(raw)
+
+    if not isinstance(data, dict):
+        raise ValueError("outline JSON root is not object")
+
+    title = _clean_text(data.get("title", strategy.get("title", "")))
+    description = _clean_text(data.get("description", strategy.get("description", "")))
+    category = _clean_text(data.get("category", strategy.get("category", "")))
+
+    sections = data.get("sections")
+    if not isinstance(sections, list) or len(sections) != IMG_COUNT:
+        raise ValueError(f"outline sections must be list of {IMG_COUNT}")
+
+    clean_sections = []
+    for s in sections:
+        if not isinstance(s, dict):
+            raise ValueError("outline section must be object")
+        heading = _clean_text(s.get("heading", ""))
+        goal = _clean_text(s.get("goal", ""))
+        image_query = _clean_text(s.get("image_query", ""))
+        must_include = s.get("must_include") or []
+        if not isinstance(must_include, list):
+            must_include = []
+        must_include = [_clean_text(x) for x in must_include if isinstance(x, str) and _clean_text(x)]
+        if not heading or not goal or not image_query or len(must_include) < 2:
+            raise ValueError("outline section missing required fields")
+        clean_sections.append({
+            "heading": heading,
+            "goal": goal,
+            "image_query": image_query,
+            "must_include": must_include[:6],
+        })
+
+    faq_questions = data.get("faq_questions") or []
+    if not isinstance(faq_questions, list):
+        faq_questions = []
+    faq_questions = [_clean_text(x) for x in faq_questions if isinstance(x, str) and _clean_text(x)][:5]
+
+    tldr_focus = data.get("tldr_focus") or []
+    if not isinstance(tldr_focus, list):
+        tldr_focus = []
+    tldr_focus = [_clean_text(x) for x in tldr_focus if isinstance(x, str) and _clean_text(x)][:5]
+
+    if category not in {"AI Tools", "Make Money", "Productivity", "Reviews"}:
+        category = strategy.get("category") or "Productivity"
+
+    return {
+        "title": title or strategy.get("title", ""),
+        "description": description or strategy.get("description", ""),
+        "category": category,
+        "sections": clean_sections,
+        "faq_questions": faq_questions,
+        "tldr_focus": tldr_focus,
+    }
+
+
+def build_article_prompt(
+    keyword: str,
+    cluster_name: str,
+    post_type: str,
+    strategy: Dict[str, str],
+    outline: Dict[str, Any],
+) -> str:
+    return f"""
+You are writing a deep practical blog article for US and EU readers.
+
+Seed keyword:
+{keyword}
+
+Cluster:
+{cluster_name}
+
+Post type:
+{post_type}
+
+Strategy:
+{json.dumps(strategy, ensure_ascii=False, indent=2)}
+
+Outline:
+{json.dumps(outline, ensure_ascii=False, indent=2)}
+
 Output MUST be valid JSON only.
 No markdown.
 No extra text.
@@ -1045,33 +1423,62 @@ No extra text.
 JSON schema:
 {{
   "title": "string",
-  "description": "string (155-170 chars, not the title)",
+  "description": "string",
   "category": "AI Tools|Make Money|Productivity|Reviews",
   "sections": [
     {{
       "heading": "string",
-      "image_query": "string (2-6 words, concrete photo idea)",
-      "body": "string (plain text, multiple paragraphs with blank lines)"
+      "image_query": "string",
+      "body": "string"
     }}
   ],
   "faq": [
     {{"q":"string","a":"string"}}
   ],
-  "tldr": "string (2-3 sentences)"
+  "tldr": "string"
 }}
 
 Hard rules:
-- Exactly {IMG_COUNT} sections.
-- Make section body lengths roughly equal.
-- Total combined text length (tldr + sections + faq answers) must be at least {MIN_CHARS} characters.
-- Avoid fluff.
-- Give concrete steps.
-- Each section must match its image_query.
-- Use simple plain English.
-- Align the article with the cluster "{cluster_name}".
-- The article must feel original and useful.
+- Exactly {IMG_COUNT} sections
+- Each section body must be detailed and useful
+- Total combined text length must be at least {MIN_CHARS} characters
+- Every section body should feel like it was written by someone who understands operations not by a generic SEO writer
+- The article must include:
+  - who this workflow is for
+  - why generic advice usually fails
+  - one clean workflow or operating system
+  - decision rules or tool choice logic
+  - setup steps
+  - common mistakes
+  - tradeoffs
+  - a checklist or template readers can reuse
+  - when not to use this setup
+- Avoid generic intros and fluffy summaries
+- Avoid phrases like "AI is transforming productivity"
+- Avoid generic listicle tone
+- Do not simply list tools
+- Explain why one approach is better in one specific situation
+- Use plain English
+- Be concrete
+- Be original
+- Each section must closely follow the outline section goal and must_include items
+- Keep section heading and image_query aligned with the outline
 
-{extra}
+Style:
+- practical
+- sharp
+- grounded
+- operational
+- useful for a real person doing real work
+
+FAQ rules:
+- 3 to 5 questions
+- realistic follow-up questions only
+- concise but useful answers
+
+TLDR rules:
+- 2 to 4 sentences
+- summarize the system and who it suits
 """.strip()
 
 
@@ -1140,6 +1547,31 @@ def parse_post_json(text: str, keyword: str = "", cluster_name: str = "", post_t
     }
 
 
+def generate_deep_post(
+    *,
+    keyword: str,
+    cluster_name: str,
+    post_type: str,
+    avoid_titles: List[str],
+) -> Tuple[Dict[str, Any], Dict[str, str], Dict[str, Any]]:
+    strategy_raw = openai_generate_text(build_strategy_prompt(keyword, avoid_titles, cluster_name, post_type))
+    strategy = parse_strategy_json(strategy_raw, keyword=keyword, cluster_name=cluster_name, post_type=post_type)
+
+    outline_raw = openai_generate_text(build_outline_prompt(strategy, keyword, cluster_name, post_type))
+    outline = parse_outline_json(outline_raw, strategy)
+
+    article_raw = openai_generate_text(build_article_prompt(keyword, cluster_name, post_type, strategy, outline))
+    data = parse_post_json(article_raw, keyword=keyword, cluster_name=cluster_name, post_type=post_type)
+
+    if not data.get("description"):
+        data["description"] = strategy.get("description") or short_desc(data.get("title", ""))
+
+    if not data.get("category"):
+        data["category"] = strategy.get("category") or pick_category(keyword=keyword, cluster_name=cluster_name, post_type=post_type)
+
+    return data, strategy, outline
+
+
 def html_escape(s: str) -> str:
     return (s or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
 
@@ -1149,16 +1581,9 @@ def paragraphs_to_html(text: str) -> str:
     if not text:
         return ""
 
-    # markdown bold 제거
     text = text.replace("**", "")
-
-    # 번호 리스트 앞 줄바꿈
     text = re.sub(r"\s*(\d+\.\s)", r"\n\n\1", text)
-
-    # 불릿 리스트 앞 줄바꿈
     text = re.sub(r"\s*(-\s)", r"\n\n\1", text)
-
-    # 문장 끝난 뒤 너무 긴 문단은 적당히 분리
     text = re.sub(r'([.!?])\s+([A-Z])', r'\1\n\n\2', text)
 
     parts = re.split(r"\n\s*\n+", text)
@@ -1169,7 +1594,6 @@ def paragraphs_to_html(text: str) -> str:
         if not p:
             continue
 
-        # 번호 리스트 처리
         if re.match(r"^\d+\.\s", p):
             lines = [x.strip() for x in p.split("\n") if x.strip()]
             items = []
@@ -1181,7 +1605,6 @@ def paragraphs_to_html(text: str) -> str:
                 out.append("<ol>" + "".join(items) + "</ol>")
                 continue
 
-        # 불릿 리스트 처리
         if re.match(r"^-\s", p):
             lines = [x.strip() for x in p.split("\n") if x.strip()]
             items = []
@@ -1193,18 +1616,6 @@ def paragraphs_to_html(text: str) -> str:
                 out.append("<ul>" + "".join(items) + "</ul>")
                 continue
 
-        out.append(f"<p>{html_escape(p)}</p>")
-
-    return "\n".join(out)
-    text = re.sub(r"\s*(\d+\.\s)", r"\n\n\1", text)
-
-    parts = re.split(r"\n\s*\n+", text)
-
-    out = []
-    for p in parts:
-        p = p.strip()
-        if not p:
-            continue
         out.append(f"<p>{html_escape(p)}</p>")
 
     return "\n".join(out)
@@ -1451,7 +1862,7 @@ def add_post_to_index(
         "keyword": keyword,
         "cluster": cluster,
         "post_type": post_type,
-        "pillar_slug": pillar_slug or slug if post_type == "pillar" else pillar_slug
+        "pillar_slug": (pillar_slug or slug) if post_type == "pillar" else pillar_slug
     })
 
 
@@ -1491,19 +1902,30 @@ def main() -> int:
         created_iso = now_utc_iso()
 
         data = None
-        for attempt in range(1, MAX_GENERATE_ATTEMPTS + 1):
-            prompt = build_prompt(keyword, avoid_titles=existing_titles, cluster_name=cluster_name, post_type=post_type)
-            raw = openai_generate_text(prompt)
+        strategy = {}
+        outline = {}
 
+        for attempt in range(1, MAX_GENERATE_ATTEMPTS + 1):
             try:
-                cand = parse_post_json(raw, keyword=keyword, cluster_name=cluster_name, post_type=post_type)
+                cand, cand_strategy, cand_outline = generate_deep_post(
+                    keyword=keyword,
+                    cluster_name=cluster_name,
+                    post_type=post_type,
+                    avoid_titles=existing_titles,
+                )
             except Exception as e:
-                print("JSON parse failed:", e)
+                print("Deep generation failed:", e)
                 continue
 
             cand_title = cand["title"]
+
             if title_too_similar(cand_title, existing_titles, TITLE_SIM_THRESHOLD):
                 print(f"Title too similar (attempt {attempt}). Regenerating.")
+                continue
+
+            ok, reason = quality_check_post(cand, keyword=keyword)
+            if not ok:
+                print(f"Quality check failed ({reason}) (attempt {attempt}). Regenerating.")
                 continue
 
             fp = make_fingerprint(cand_title, cand["sections"], cand["tldr"], cand["faq"])
@@ -1512,16 +1934,18 @@ def main() -> int:
                 continue
 
             data = cand
+            strategy = cand_strategy
+            outline = cand_outline
             used_fps.add(fp)
             break
 
         if not data:
-            print("Failed to generate a unique post. Skipping keyword.")
+            print("Failed to generate a unique deep post. Skipping keyword.")
             continue
 
         title = data["title"]
-        description = data["description"]
-        category = pick_category(keyword=keyword, cluster_name=cluster_name, post_type=post_type)
+        description = data["description"] or strategy.get("description") or short_desc(title)
+        category = data["category"] or strategy.get("category") or pick_category(keyword=keyword, cluster_name=cluster_name, post_type=post_type)
         sections = data["sections"]
         tldr = data["tldr"]
         faq = data["faq"]
@@ -1593,6 +2017,7 @@ def main() -> int:
         print(f"Source keyword: {keyword}")
         print(f"Topic cluster: {cluster_name}")
         print(f"Post type: {post_type}")
+        print(f"Strategy angle: {strategy.get('angle', '')}")
         made += 1
 
     if made == 0:
