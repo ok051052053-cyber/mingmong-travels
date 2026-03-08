@@ -2196,10 +2196,10 @@ def build_image_asset_for_section(
     folder = ASSETS_POSTS_DIR / slug
     folder.mkdir(parents=True, exist_ok=True)
 
-clean_query = " ".join([
-    (image_query or "").strip(),
-    (heading or "").strip(),
-]).strip() or "modern office workspace laptop notes"
+    clean_query = " ".join([
+        (image_query or "").strip(),
+        (heading or "").strip(),
+    ]).strip() or "modern office workspace laptop notes"
     alt_text = alt_hint or build_image_alt(heading, heading, clean_query)
 
     should_try_external = len(clean_query.split()) >= 1
@@ -2227,9 +2227,7 @@ clean_query = " ".join([
             except Exception as e:
                 log("IMG", f"Download failed for '{clean_query}' from {asset.get('source')}: {e}")
 
-
     return "", alt_text, None, used_ids
-
 
 def build_visual_assets(slug: str, sections: List[Dict[str, str]]) -> Tuple[List[str], List[str], List[str]]:
     used_raw = load_json(USED_IMAGES_JSON, {})
