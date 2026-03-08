@@ -78,17 +78,17 @@ PEXELS_API_KEY = os.environ.get("PEXELS_API_KEY", "").strip()
 PIXABAY_API_KEY = os.environ.get("PIXABAY_API_KEY", "").strip()
 ENABLE_WIKIMEDIA = os.environ.get("ENABLE_WIKIMEDIA", "1").strip() == "1"
 
-UNSPLASH_MIN_WIDTH = int(os.environ.get("UNSPLASH_MIN_WIDTH", "1800"))
-UNSPLASH_MIN_HEIGHT = int(os.environ.get("UNSPLASH_MIN_HEIGHT", "1100"))
-UNSPLASH_MIN_LIKES = int(os.environ.get("UNSPLASH_MIN_LIKES", "40"))
+UNSPLASH_MIN_WIDTH = int(os.environ.get("UNSPLASH_MIN_WIDTH", "1400"))
+UNSPLASH_MIN_HEIGHT = int(os.environ.get("UNSPLASH_MIN_HEIGHT", "900"))
+UNSPLASH_MIN_LIKES = int(os.environ.get("UNSPLASH_MIN_LIKES", "10"))
 UNSPLASH_PER_PAGE = int(os.environ.get("UNSPLASH_PER_PAGE", "30"))
 
-PEXELS_MIN_WIDTH = int(os.environ.get("PEXELS_MIN_WIDTH", "1800"))
-PEXELS_MIN_HEIGHT = int(os.environ.get("PEXELS_MIN_HEIGHT", "1100"))
+PEXELS_MIN_WIDTH = int(os.environ.get("PEXELS_MIN_WIDTH", "1400"))
+PEXELS_MIN_HEIGHT = int(os.environ.get("PEXELS_MIN_HEIGHT", "900"))
 PEXELS_PER_PAGE = int(os.environ.get("PEXELS_PER_PAGE", "30"))
 
-PIXABAY_MIN_WIDTH = int(os.environ.get("PIXABAY_MIN_WIDTH", "1800"))
-PIXABAY_MIN_HEIGHT = int(os.environ.get("PIXABAY_MIN_HEIGHT", "1100"))
+PIXABAY_MIN_WIDTH = int(os.environ.get("PIXABAY_MIN_WIDTH", "1400"))
+PIXABAY_MIN_HEIGHT = int(os.environ.get("PIXABAY_MIN_HEIGHT", "900"))
 PIXABAY_PER_PAGE = int(os.environ.get("PIXABAY_PER_PAGE", "50"))
 
 IMAGE_SOURCE_PRIORITY = [
@@ -1365,7 +1365,6 @@ Schema:
     {{"q":"string","a":"string"}}
   ],
   "tldr": "string",
-  "editorial_note": "1 to 2 sentence trust note"
 }}
 
 Hard rules:
@@ -2214,15 +2213,8 @@ def build_image_asset_for_section(
             except Exception as e:
                 log("IMG", f"Download failed for '{clean_query}' from {asset.get('source')}: {e}")
 
-    svg_path = folder / f"{idx}.svg"
-    create_svg_visual(
-        svg_path,
-        title=heading,
-        subtitle=clean_query or alt_text or heading,
-        badge="Workflow Visual" if visual_type == "diagram" else "Workspace Visual",
-    )
-    rel_path = f"assets/posts/{slug}/{idx}.svg"
-    return rel_path, alt_text, None, used_ids
+
+    return "", alt_text, None, used_ids
 
 
 def build_visual_assets(slug: str, sections: List[Dict[str, str]]) -> Tuple[List[str], List[str], List[str]]:
@@ -2565,14 +2557,19 @@ def render_post_html(
     og_image = f"{SITE_URL}/{image_paths[0]}" if image_paths else ""
 
     blocks = []
-    blocks.append('<section class="editorial-note-block"><p><strong>Editorial note:</strong> ' + html_escape(editorial_note) + '</p></section>')
     blocks.append("<h2>TL;DR</h2>")
     blocks.append(paragraphs_to_html(tldr))
 
     for i, sec in enumerate(sections):
-        img_rel = f"../{image_paths[i]}"
+        img_path = image_paths[i] if i < len(image_paths) else ""
         alt = html_escape(alt_texts[i] if i < len(alt_texts) else sec.get("heading", title))
-        blocks.append(f'<figure class="post-figure"><img src="{img_rel}" alt="{alt}" loading="lazy"><figcaption>{alt}</figcaption></figure>')
+
+        if img_path:
+            img_rel = f"../{img_path}"
+            blocks.append(
+                f'<figure class="post-figure"><img src="{img_rel}" alt="{alt}" loading="lazy"><figcaption>{alt}</figcaption></figure>'
+            )
+
         blocks.append(f"<h2>{html_escape(sec['heading'])}</h2>")
         blocks.append(paragraphs_to_html(sec["body"]))
 
@@ -2926,10 +2923,7 @@ Retry correction:
             pillar_slug = slug
 
         image_paths, alt_texts, credits_li = build_visual_assets(slug, sections)
-        if len(image_paths) != len(sections):
-            log("IMG", f"Visual asset generation count mismatch for slug='{slug}'")
-            continue
-
+       
         related_posts = select_related_posts(
             posts,
             current_slug=slug,
