@@ -2868,11 +2868,11 @@ def main() -> int:
                 if post_semantically_too_close(keyword, cand_planning, posts):
                     log("DUP", f"Semantic overlap detected on attempt {attempt} for keyword='{keyword}'")
                     corrective_note = """
-Retry correction:
-- Choose a meaningfully different audience or operating problem
-- Narrow the angle
-- Avoid overlap with existing onboarding, planning, admin, proposal, invoicing, and follow-up workflows
-"""
+                    Retry correction:
+                    - Choose a meaningfully different audience or operating problem
+                    - Narrow the angle
+                    - Avoid overlap with existing onboarding, planning, admin, proposal, invoicing, and follow-up workflows
+                    """
                     continue
 
                 cand_title = cand["title"]
@@ -2880,11 +2880,11 @@ Retry correction:
                 if title_too_similar(cand_title, existing_titles, TITLE_SIM_THRESHOLD):
                     log("DUP", f"Title too similar on attempt {attempt}: '{cand_title}'")
                     corrective_note = """
-Retry correction:
-- Create a more distinct title
-- Keep the title natural and human
-- Do not resemble existing titles
-"""
+                    Retry correction:
+                    - Create a more distinct title
+                    - Keep the title natural and human
+                    - Do not resemble existing titles
+                    """
                     continue
 
                 ok, reason = quality_check_post(cand, keyword=keyword)
@@ -2897,11 +2897,11 @@ Retry correction:
                 if fp in used_fps:
                     log("DUP", f"Fingerprint duplicate on attempt {attempt}")
                     corrective_note = """
-Retry correction:
-- Keep the same intent
-- Change framing, examples, and reusable checklist
-- Make the article materially different
-"""
+                    Retry correction:
+                    - Keep the same intent
+                    - Change framing, examples, and reusable checklist
+                    - Make the article materially different
+                    """
                     continue
 
                 data = cand
@@ -2928,11 +2928,11 @@ Retry correction:
             if title_too_similar(cand_title, existing_titles, TITLE_SIM_THRESHOLD):
                 log("DUP", f"Title too similar on attempt {attempt}: '{cand_title}'")
                 corrective_note = """
-Retry correction:
-- Create a more distinct title
-- Keep the title natural and human
-- Do not resemble existing titles
-"""
+                    Retry correction:
+                    - Create a more distinct title
+                    - Keep the title natural and human
+                    - Do not resemble existing titles
+                    """
                 continue
 
             ok, reason = quality_check_post(cand, keyword=keyword)
