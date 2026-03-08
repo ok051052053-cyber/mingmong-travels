@@ -1305,3 +1305,24 @@ textarea:focus-visible{
     padding:12px 14px;
   }
 }
+
+@media(min-width:1024px){
+  .post-figure{
+    max-width:520px;
+    margin:28px auto 20px 0;
+  }
+
+  .post-content img{
+    width:100%;
+    max-width:520px;
+    margin:0;
+    display:block;
+  }
+
+  .post-figure figcaption{
+    font-size:13px;
+    color:var(--muted);
+    margin-top:10px;
+    text-align:left;
+  }
+}
