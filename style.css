@@ -1361,3 +1361,23 @@ textarea:focus-visible{
     clear:both;
   }
 }
+
+/* article image + text layout */
+.article-row{
+  display:grid;
+  grid-template-columns:320px 1fr;
+  gap:28px;
+  align-items:start;
+  margin:32px 0;
+}
+
+.article-row img{
+  width:100%;
+  border-radius:14px;
+}
+
+@media (max-width:768px){
+  .article-row{
+    grid-template-columns:1fr;
+  }
+}
