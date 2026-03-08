@@ -787,3 +787,226 @@ a:hover{text-decoration:underline}
   .menu-title{font-size:16px}
   .menu-sub{font-size:13px}
 }
+
+/* =========================
+   SEARCH
+   ========================= */
+.nav-search-btn{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  padding:10px 12px;
+  border-radius:10px;
+  border:1px solid var(--border);
+  background:#fff;
+  color:var(--text);
+  font-weight:800;
+  font-size:14px;
+  cursor:pointer;
+}
+.nav-search-btn:hover{
+  background:#f3f4f6;
+}
+.nav-search-ico{
+  line-height:1;
+}
+.nav-search-text{
+  display:inline-block;
+}
+@media(max-width:600px){
+  .nav-search-btn{
+    padding:6px 8px;
+    font-size:13px;
+  }
+  .nav-search-text{
+    display:none;
+  }
+}
+
+.home-search-wrap{
+  margin-top:18px;
+  width:100%;
+  max-width:760px;
+}
+
+.site-search-form{
+  width:100%;
+}
+
+.site-search-bar{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  width:100%;
+  padding:10px 12px;
+  border:1px solid var(--border);
+  border-radius:16px;
+  background:#fff;
+  box-shadow:var(--shadow);
+}
+
+.site-search-icon{
+  flex:0 0 auto;
+  font-size:16px;
+  line-height:1;
+}
+
+.site-search-input{
+  flex:1 1 auto;
+  min-width:0;
+  border:0;
+  outline:0;
+  background:transparent;
+  color:var(--text);
+  font-size:15px;
+  font-weight:600;
+}
+
+.site-search-input::placeholder{
+  color:#94a3b8;
+  font-weight:600;
+}
+
+.site-search-submit{
+  flex:0 0 auto;
+  border:0;
+  border-radius:12px;
+  padding:10px 14px;
+  background:var(--accent);
+  color:#fff;
+  font-weight:800;
+  font-size:14px;
+  cursor:pointer;
+  box-shadow:0 10px 22px rgba(37,99,235,.20);
+}
+
+@media(max-width:600px){
+  .site-search-bar{
+    padding:10px;
+    gap:8px;
+  }
+  .site-search-submit{
+    padding:10px 12px;
+    font-size:13px;
+  }
+}
+
+.site-search-inline-results{
+  display:none;
+  margin-top:12px;
+  border:1px solid var(--border);
+  border-radius:16px;
+  background:#fff;
+  box-shadow:var(--shadow);
+  overflow:hidden;
+}
+.site-search-inline-results.is-active{
+  display:block;
+}
+
+.search-result-item{
+  display:block;
+  padding:14px 16px;
+  border-bottom:1px solid #eef2f7;
+  text-decoration:none;
+  color:inherit;
+  background:#fff;
+}
+.search-result-item:last-child{
+  border-bottom:0;
+}
+.search-result-item:hover{
+  background:#f8fafc;
+  text-decoration:none;
+}
+.search-result-kicker{
+  font-size:12px;
+  color:var(--accent);
+  font-weight:800;
+  margin-bottom:4px;
+}
+.search-result-title{
+  font-size:15px;
+  font-weight:900;
+  line-height:1.45;
+  color:var(--text);
+  margin-bottom:4px;
+}
+.search-result-desc{
+  font-size:13px;
+  color:var(--muted);
+  line-height:1.55;
+}
+.search-empty{
+  padding:16px;
+  color:var(--muted);
+  font-size:14px;
+}
+
+.site-search-overlay{
+  position:fixed;
+  inset:0;
+  z-index:9999;
+}
+.site-search-backdrop{
+  position:absolute;
+  inset:0;
+  background:rgba(15,23,42,.42);
+}
+.site-search-modal{
+  position:relative;
+  z-index:2;
+  width:min(760px,calc(100% - 24px));
+  margin:80px auto 0;
+  background:#fff;
+  border:1px solid var(--border);
+  border-radius:22px;
+  box-shadow:0 20px 60px rgba(15,23,42,.20);
+  overflow:hidden;
+}
+.site-search-modal-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  padding:16px 18px 8px;
+}
+.site-search-modal-title{
+  font-size:18px;
+  font-weight:900;
+  color:var(--text);
+}
+.site-search-close{
+  border:1px solid var(--border);
+  background:#fff;
+  width:38px;
+  height:38px;
+  border-radius:12px;
+  cursor:pointer;
+  font-size:16px;
+}
+.site-search-close:hover{
+  background:#f3f4f6;
+}
+.site-search-overlay .site-search-form{
+  padding:0 18px 12px;
+}
+.site-search-modal-links{
+  padding:0 18px 12px;
+}
+.site-search-modal-links a{
+  font-size:13px;
+  font-weight:800;
+  color:var(--accent);
+}
+.site-search-results{
+  max-height:min(60vh,520px);
+  overflow:auto;
+  border-top:1px solid #eef2f7;
+  background:#fff;
+}
+
+body.search-open{
+  overflow:hidden;
+}
