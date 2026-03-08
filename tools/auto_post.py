@@ -74,10 +74,29 @@ SERP_CHECK_ENABLED = os.environ.get("SERP_CHECK_ENABLED", "1").strip() == "1"
 SERP_CHECK_LIMIT = int(os.environ.get("SERP_CHECK_LIMIT", "8"))
 
 UNSPLASH_ACCESS_KEY = os.environ.get("UNSPLASH_ACCESS_KEY", "").strip()
+PEXELS_API_KEY = os.environ.get("PEXELS_API_KEY", "").strip()
+PIXABAY_API_KEY = os.environ.get("PIXABAY_API_KEY", "").strip()
+ENABLE_WIKIMEDIA = os.environ.get("ENABLE_WIKIMEDIA", "1").strip() == "1"
+
 UNSPLASH_MIN_WIDTH = int(os.environ.get("UNSPLASH_MIN_WIDTH", "1800"))
 UNSPLASH_MIN_HEIGHT = int(os.environ.get("UNSPLASH_MIN_HEIGHT", "1100"))
 UNSPLASH_MIN_LIKES = int(os.environ.get("UNSPLASH_MIN_LIKES", "40"))
 UNSPLASH_PER_PAGE = int(os.environ.get("UNSPLASH_PER_PAGE", "30"))
+
+PEXELS_MIN_WIDTH = int(os.environ.get("PEXELS_MIN_WIDTH", "1800"))
+PEXELS_MIN_HEIGHT = int(os.environ.get("PEXELS_MIN_HEIGHT", "1100"))
+PEXELS_PER_PAGE = int(os.environ.get("PEXELS_PER_PAGE", "30"))
+
+PIXABAY_MIN_WIDTH = int(os.environ.get("PIXABAY_MIN_WIDTH", "1800"))
+PIXABAY_MIN_HEIGHT = int(os.environ.get("PIXABAY_MIN_HEIGHT", "1100"))
+PIXABAY_PER_PAGE = int(os.environ.get("PIXABAY_PER_PAGE", "50"))
+
+IMAGE_SOURCE_PRIORITY = [
+    "unsplash",
+    "pexels",
+    "pixabay",
+    "wikimedia",
+]
 
 RELATED_POST_LIMIT = int(os.environ.get("RELATED_POST_LIMIT", "3"))
 
@@ -325,12 +344,12 @@ def short_desc(text: str) -> str:
 
 def ensure_used_schema(raw):
     if isinstance(raw, dict):
-        if "unsplash_ids" not in raw or not isinstance(raw.get("unsplash_ids"), list):
-            raw["unsplash_ids"] = []
+        if "asset_ids" not in raw or not isinstance(raw.get("asset_ids"), list):
+            raw["asset_ids"] = []
         return raw
     if isinstance(raw, list):
-        return {"unsplash_ids": [x for x in raw if isinstance(x, str)]}
-    return {"unsplash_ids": []}
+        return {"asset_ids": [x for x in raw if isinstance(x, str)]}
+    return {"asset_ids": []}
 
 
 def ensure_used_texts_schema(raw):
@@ -1717,67 +1736,370 @@ def generate_deep_post(
 # =========================================================
 # Images and visuals
 # =========================================================
-def unsplash_search(query: str, page: int = 1) -> dict:
-    url = "https://api.unsplash.com/search/photos"
-    headers = {
-        "Accept-Version": "v1",
-        "Authorization": f"Client-ID {UNSPLASH_ACCESS_KEY}",
-    }
-    params = {
-        "query": query,
-        "page": page,
-        "per_page": UNSPLASH_PER_PAGE,
-        "orientation": "landscape",
-        "content_filter": "high",
-    }
-    r = requests.get(url, headers=headers, params=params, timeout=HTTP_TIMEOUT)
-    r.raise_for_status()
-    return r.json()
+def sanitize_query_for_image(q: str) -> str:
+    q = (q or "").strip()
+    q = re.sub(
+        r"\b(workflow|system|checklist|template|playbook|automation|process|guide|how to)\b",
+        "",
+        q,
+        flags=re.IGNORECASE,
+    )
+    q = re.sub(r"\s+", " ", q).strip()
+    return q or "workspace desk laptop"
 
 
-def pick_high_quality_unsplash(results: List[dict], used_ids: set) -> List[dict]:
-    picked = []
-    for item in results:
-        try:
-            pid = item.get("id")
-            if not pid or pid in used_ids:
+def normalize_asset_id(source: str, raw_id: str) -> str:
+    return f"{source}:{raw_id}"
+
+
+def score_query_match(query: str, haystack: str) -> float:
+    q = normalize_keyword(query)
+    h = normalize_keyword(haystack)
+    if not q or not h:
+        return 0.0
+    return similarity_ratio(q, h)
+
+
+def build_image_alt(title: str, heading: str, image_query: str) -> str:
+    base = (heading or image_query or title or "article visual").strip()
+    base = re.sub(r"\s+", " ", base).strip()
+    if len(base) > 140:
+        base = base[:137].rstrip() + "..."
+    return base
+
+
+# -----------------------------
+# Unsplash
+# -----------------------------
+def unsplash_search(query: str, page: int = 1) -> List[dict]:
+    if not UNSPLASH_ACCESS_KEY:
+        return []
+
+    try:
+        url = "https://api.unsplash.com/search/photos"
+        headers = {
+            "Accept-Version": "v1",
+            "Authorization": f"Client-ID {UNSPLASH_ACCESS_KEY}",
+        }
+        params = {
+            "query": query,
+            "page": page,
+            "per_page": UNSPLASH_PER_PAGE,
+            "orientation": "landscape",
+            "content_filter": "high",
+        }
+        r = requests.get(url, headers=headers, params=params, timeout=HTTP_TIMEOUT)
+        r.raise_for_status()
+        data = r.json()
+        results = data.get("results") or []
+
+        out = []
+        for item in results:
+            try:
+                pid = str(item.get("id") or "").strip()
+                if not pid:
+                    continue
+
+                w = int(item.get("width") or 0)
+                h = int(item.get("height") or 0)
+                likes = int(item.get("likes") or 0)
+                if w < UNSPLASH_MIN_WIDTH or h < UNSPLASH_MIN_HEIGHT:
+                    continue
+                if likes < UNSPLASH_MIN_LIKES:
+                    continue
+
+                ratio = w / max(h, 1)
+                if ratio < 1.2 or ratio > 2.2:
+                    continue
+
+                urls = item.get("urls") or {}
+                raw = urls.get("raw") or urls.get("full") or urls.get("regular")
+                if not raw:
+                    continue
+
+                user = item.get("user") or {}
+                user_name = (user.get("name") or "").strip()
+                user_link = ((user.get("links") or {}).get("html") or "").strip()
+                page_link = ((item.get("links") or {}).get("html") or "").strip()
+                if not user_name or not user_link or not page_link:
+                    continue
+
+                desc = " ".join([
+                    str(item.get("description") or ""),
+                    str(item.get("alt_description") or ""),
+                    user_name,
+                ]).strip()
+
+                out.append({
+                    "source": "unsplash",
+                    "id": normalize_asset_id("unsplash", pid),
+                    "raw_id": pid,
+                    "width": w,
+                    "height": h,
+                    "score": score_query_match(query, desc) + min(likes / 500.0, 0.4),
+                    "download_url": raw,
+                    "page_url": page_link,
+                    "creator_name": user_name,
+                    "creator_url": user_link,
+                })
+            except Exception:
                 continue
 
-            w = int(item.get("width") or 0)
-            h = int(item.get("height") or 0)
-            likes = int(item.get("likes") or 0)
+        out.sort(key=lambda x: x["score"], reverse=True)
+        return out
+    except Exception as e:
+        log("IMG", f"Unsplash search failed for '{query}': {e}")
+        return []
 
-            if w < UNSPLASH_MIN_WIDTH or h < UNSPLASH_MIN_HEIGHT:
+
+# -----------------------------
+# Pexels
+# -----------------------------
+def pexels_search(query: str, page: int = 1) -> List[dict]:
+    if not PEXELS_API_KEY:
+        return []
+
+    try:
+        url = "https://api.pexels.com/v1/search"
+        headers = {"Authorization": PEXELS_API_KEY}
+        params = {
+            "query": query,
+            "page": page,
+            "per_page": PEXELS_PER_PAGE,
+            "orientation": "landscape",
+        }
+        r = requests.get(url, headers=headers, params=params, timeout=HTTP_TIMEOUT)
+        r.raise_for_status()
+        data = r.json()
+        results = data.get("photos") or []
+
+        out = []
+        for item in results:
+            try:
+                pid = str(item.get("id") or "").strip()
+                if not pid:
+                    continue
+
+                w = int(item.get("width") or 0)
+                h = int(item.get("height") or 0)
+                if w < PEXELS_MIN_WIDTH or h < PEXELS_MIN_HEIGHT:
+                    continue
+
+                ratio = w / max(h, 1)
+                if ratio < 1.2 or ratio > 2.2:
+                    continue
+
+                src = item.get("src") or {}
+                download_url = src.get("large2x") or src.get("large") or src.get("original")
+                if not download_url:
+                    continue
+
+                creator_name = (item.get("photographer") or "").strip()
+                creator_url = (item.get("photographer_url") or "").strip()
+                page_url = (item.get("url") or "").strip()
+
+                desc = " ".join([
+                    creator_name,
+                    str(item.get("alt") or ""),
+                    str(item.get("avg_color") or ""),
+                ]).strip()
+
+                out.append({
+                    "source": "pexels",
+                    "id": normalize_asset_id("pexels", pid),
+                    "raw_id": pid,
+                    "width": w,
+                    "height": h,
+                    "score": score_query_match(query, desc),
+                    "download_url": download_url,
+                    "page_url": page_url or creator_url,
+                    "creator_name": creator_name or "Pexels contributor",
+                    "creator_url": creator_url or "https://www.pexels.com",
+                })
+            except Exception:
                 continue
-            if likes < UNSPLASH_MIN_LIKES:
+
+        out.sort(key=lambda x: x["score"], reverse=True)
+        return out
+    except Exception as e:
+        log("IMG", f"Pexels search failed for '{query}': {e}")
+        return []
+
+
+# -----------------------------
+# Pixabay
+# -----------------------------
+def pixabay_search(query: str, page: int = 1) -> List[dict]:
+    if not PIXABAY_API_KEY:
+        return []
+
+    try:
+        url = "https://pixabay.com/api/"
+        params = {
+            "key": PIXABAY_API_KEY,
+            "q": query,
+            "image_type": "photo",
+            "orientation": "horizontal",
+            "safesearch": "true",
+            "page": page,
+            "per_page": PIXABAY_PER_PAGE,
+        }
+        r = requests.get(url, params=params, timeout=HTTP_TIMEOUT)
+        r.raise_for_status()
+        data = r.json()
+        results = data.get("hits") or []
+
+        out = []
+        for item in results:
+            try:
+                pid = str(item.get("id") or "").strip()
+                if not pid:
+                    continue
+
+                w = int(item.get("imageWidth") or 0)
+                h = int(item.get("imageHeight") or 0)
+                if w < PIXABAY_MIN_WIDTH or h < PIXABAY_MIN_HEIGHT:
+                    continue
+
+                ratio = w / max(h, 1)
+                if ratio < 1.2 or ratio > 2.2:
+                    continue
+
+                download_url = (item.get("largeImageURL") or item.get("webformatURL") or "").strip()
+                if not download_url:
+                    continue
+
+                creator_name = (item.get("user") or "").strip()
+                page_url = (item.get("pageURL") or "").strip()
+                tags = (item.get("tags") or "").strip()
+
+                out.append({
+                    "source": "pixabay",
+                    "id": normalize_asset_id("pixabay", pid),
+                    "raw_id": pid,
+                    "width": w,
+                    "height": h,
+                    "score": score_query_match(query, tags),
+                    "download_url": download_url,
+                    "page_url": page_url or "https://pixabay.com",
+                    "creator_name": creator_name or "Pixabay contributor",
+                    "creator_url": "https://pixabay.com",
+                })
+            except Exception:
                 continue
 
-            ratio = w / max(h, 1)
-            if ratio < 1.2 or ratio > 2.2:
+        out.sort(key=lambda x: x["score"], reverse=True)
+        return out
+    except Exception as e:
+        log("IMG", f"Pixabay search failed for '{query}': {e}")
+        return []
+
+
+# -----------------------------
+# Wikimedia Commons
+# -----------------------------
+def wikimedia_search(query: str, page: int = 1) -> List[dict]:
+    if not ENABLE_WIKIMEDIA:
+        return []
+
+    try:
+        offset = (page - 1) * 20
+        params = {
+            "action": "query",
+            "generator": "search",
+            "gsrsearch": f"filetype:bitmap {query}",
+            "gsrnamespace": 6,
+            "gsrlimit": 20,
+            "gsroffset": offset,
+            "prop": "imageinfo",
+            "iiprop": "url",
+            "iiurlwidth": 1800,
+            "format": "json",
+            "origin": "*",
+        }
+        r = requests.get("https://commons.wikimedia.org/w/api.php", params=params, timeout=HTTP_TIMEOUT)
+        r.raise_for_status()
+        data = r.json()
+        pages = (data.get("query") or {}).get("pages") or {}
+
+        out = []
+        for _, item in pages.items():
+            try:
+                title = str(item.get("title") or "").strip()
+                if not title:
+                    continue
+
+                pageid = str(item.get("pageid") or title).strip()
+                imageinfo = item.get("imageinfo") or []
+                if not imageinfo:
+                    continue
+
+                info = imageinfo[0]
+                thumb = (info.get("thumburl") or info.get("url") or "").strip()
+                if not thumb:
+                    continue
+
+                w = int(info.get("thumbwidth") or info.get("width") or 0)
+                h = int(info.get("thumbheight") or info.get("height") or 0)
+                if w < 1000 or h < 600:
+                    continue
+
+                ratio = w / max(h, 1)
+                if ratio < 1.1 or ratio > 2.4:
+                    continue
+
+                page_url = f"https://commons.wikimedia.org/wiki/{title.replace(' ', '_')}"
+                desc = " ".join([
+                    title,
+                    str(item.get("snippet") or ""),
+                ]).strip()
+
+                out.append({
+                    "source": "wikimedia",
+                    "id": normalize_asset_id("wikimedia", pageid),
+                    "raw_id": pageid,
+                    "width": w,
+                    "height": h,
+                    "score": score_query_match(query, desc),
+                    "download_url": thumb,
+                    "page_url": page_url,
+                    "creator_name": "Wikimedia Commons",
+                    "creator_url": "https://commons.wikimedia.org",
+                })
+            except Exception:
                 continue
 
-            urls = item.get("urls") or {}
-            if not urls.get("raw") and not urls.get("full") and not urls.get("regular"):
-                continue
-
-            user = item.get("user") or {}
-            if not user.get("name") or not user.get("links", {}).get("html"):
-                continue
-
-            picked.append(item)
-        except Exception:
-            continue
-    return picked
+        out.sort(key=lambda x: x["score"], reverse=True)
+        return out
+    except Exception as e:
+        log("IMG", f"Wikimedia search failed for '{query}': {e}")
+        return []
 
 
-def download_unsplash_photo(item: dict, out_path: Path) -> None:
-    urls = item.get("urls") or {}
-    raw = urls.get("raw") or urls.get("full") or urls.get("regular")
-    if not raw:
-        raise RuntimeError("Unsplash photo url missing")
+def search_source(source: str, query: str, page: int = 1) -> List[dict]:
+    if source == "unsplash":
+        return unsplash_search(query, page=page)
+    if source == "pexels":
+        return pexels_search(query, page=page)
+    if source == "pixabay":
+        return pixabay_search(query, page=page)
+    if source == "wikimedia":
+        return wikimedia_search(query, page=page)
+    return []
 
-    dl = raw + ("&fm=jpg&q=80&w=1800&fit=max" if "?" in raw else "?fm=jpg&q=80&w=1800&fit=max")
-    r = requests.get(dl, timeout=HTTP_TIMEOUT)
+
+def download_asset(asset: dict, out_path: Path) -> None:
+    url = asset.get("download_url") or ""
+    if not url:
+        raise RuntimeError("download_url missing")
+
+    if asset.get("source") == "unsplash":
+        if "?" in url:
+            url = url + "&fm=jpg&q=80&w=1800&fit=max"
+        else:
+            url = url + "?fm=jpg&q=80&w=1800&fit=max"
+
+    r = requests.get(url, timeout=HTTP_TIMEOUT, headers={"User-Agent": "Mozilla/5.0"})
     r.raise_for_status()
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_bytes(r.content)
@@ -1824,6 +2146,34 @@ def create_svg_visual(out_path: Path, title: str, subtitle: str, badge: str = "W
     out_path.write_text(svg, encoding="utf-8")
 
 
+def find_best_asset_for_query(query: str, used_ids: set) -> Optional[dict]:
+    clean_query = sanitize_query_for_image(query)
+    candidates: List[dict] = []
+
+    for source in IMAGE_SOURCE_PRIORITY:
+        for page in [1, 2]:
+            results = search_source(source, clean_query, page=page)
+            if not results:
+                continue
+
+            for asset in results:
+                if asset["id"] in used_ids:
+                    continue
+                candidates.append(asset)
+
+            if candidates:
+                break
+
+        if candidates:
+            break
+
+    if not candidates:
+        return None
+
+    candidates.sort(key=lambda x: x["score"], reverse=True)
+    return candidates[0]
+
+
 def build_image_asset_for_section(
     slug: str,
     idx: int,
@@ -1836,60 +2186,49 @@ def build_image_asset_for_section(
     folder = ASSETS_POSTS_DIR / slug
     folder.mkdir(parents=True, exist_ok=True)
 
-    photo_credit_html = None
+    clean_query = image_query or heading or "workspace desk laptop"
+    alt_text = alt_hint or build_image_alt(heading, heading, clean_query)
 
-    should_try_photo = (
-        visual_type in {"photo", "workspace"} and
-        bool(UNSPLASH_ACCESS_KEY) and
-        len(image_query.split()) >= 2
-    )
+    should_try_external = len(clean_query.split()) >= 1
+    if should_try_external:
+        asset = find_best_asset_for_query(clean_query, used_ids)
 
-    if should_try_photo:
-        found = None
-        for page in [1, 2, 3]:
-            try:
-                data = unsplash_search(image_query, page=page)
-                results = data.get("results") or []
-                candidates = pick_high_quality_unsplash(results, used_ids)
-                if candidates:
-                    found = candidates[0]
-                    break
-            except Exception as e:
-                log("IMG", f"Unsplash search failed for '{image_query}' page={page}: {e}")
-
-        if found:
-            pid = found.get("id")
-            used_ids.add(pid)
+        if asset:
+            used_ids.add(asset["id"])
             ext_path = folder / f"{idx}.jpg"
-            download_unsplash_photo(found, ext_path)
-            rel_path = f"assets/posts/{slug}/{idx}.jpg"
+            try:
+                download_asset(asset, ext_path)
+                rel_path = f"assets/posts/{slug}/{idx}.jpg"
 
-            user = found.get("user") or {}
-            name = html_escape(user.get("name") or "Unsplash contributor")
-            user_link = html_escape((user.get("links") or {}).get("html") or "https://unsplash.com")
-            photo_link = html_escape((found.get("links") or {}).get("html") or "https://unsplash.com")
-            photo_credit_html = (
-                f'<li>Photo {idx}: '
-                f'<a href="{user_link}" target="_blank" rel="noopener noreferrer">{name}</a> '
-                f'on <a href="{photo_link}" target="_blank" rel="noopener noreferrer">Unsplash</a></li>'
-            )
-            return rel_path, alt_hint or heading, photo_credit_html, used_ids
+                creator_name = html_escape(asset.get("creator_name") or asset.get("source", "Image source"))
+                creator_url = html_escape(asset.get("creator_url") or asset.get("page_url") or "#")
+                page_url = html_escape(asset.get("page_url") or creator_url)
+                source_label = html_escape(asset.get("source", "source").title())
+
+                photo_credit_html = (
+                    f'<li>Photo {idx}: '
+                    f'<a href="{creator_url}" target="_blank" rel="noopener noreferrer">{creator_name}</a> '
+                    f'via <a href="{page_url}" target="_blank" rel="noopener noreferrer">{source_label}</a></li>'
+                )
+                return rel_path, alt_text, photo_credit_html, used_ids
+            except Exception as e:
+                log("IMG", f"Download failed for '{clean_query}' from {asset.get('source')}: {e}")
 
     svg_path = folder / f"{idx}.svg"
     create_svg_visual(
         svg_path,
         title=heading,
-        subtitle=image_query or alt_hint or heading,
+        subtitle=clean_query or alt_text or heading,
         badge="Workflow Visual" if visual_type == "diagram" else "Workspace Visual",
     )
     rel_path = f"assets/posts/{slug}/{idx}.svg"
-    return rel_path, alt_hint or heading, None, used_ids
+    return rel_path, alt_text, None, used_ids
 
 
 def build_visual_assets(slug: str, sections: List[Dict[str, str]]) -> Tuple[List[str], List[str], List[str]]:
     used_raw = load_json(USED_IMAGES_JSON, {})
     used = ensure_used_schema(used_raw)
-    used_ids = set(used.get("unsplash_ids") or [])
+    used_ids = set(used.get("asset_ids") or [])
 
     image_paths: List[str] = []
     alt_texts: List[str] = []
@@ -1910,7 +2249,7 @@ def build_visual_assets(slug: str, sections: List[Dict[str, str]]) -> Tuple[List
         if credit:
             credits_li.append(credit)
 
-    used["unsplash_ids"] = sorted(list(used_ids))
+    used["asset_ids"] = sorted(list(used_ids))
     save_json(USED_IMAGES_JSON, used)
 
     return image_paths, alt_texts, credits_li
