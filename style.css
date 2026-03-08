@@ -1393,3 +1393,40 @@ textarea:focus-visible{
   width:100%;
   display:block;
 }
+
+.section-media-block{
+  display:block;
+}
+
+.section-float{
+  float:left;
+  width:320px;
+  margin:8px 24px 16px 0;
+}
+
+.section-float img{
+  width:100%;
+  display:block;
+  border-radius:14px;
+}
+
+.section-float figcaption{
+  margin-top:8px;
+  font-size:14px;
+  color:#6b7280;
+  line-height:1.5;
+}
+
+.section-media-block::after{
+  content:"";
+  display:block;
+  clear:both;
+}
+
+@media (max-width:768px){
+  .section-float{
+    float:none;
+    width:100%;
+    margin:12px 0 16px;
+  }
+}
