@@ -2949,7 +2949,7 @@ Retry correction:
 - Keep the same intent
 - Change framing, examples, and reusable checklist
 - Make the article materially different
-"""
+
                     continue
 
                 data = cand
