@@ -43,8 +43,8 @@ OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "").strip()
 MODEL_PLANNER = os.environ.get("MODEL_PLANNER", os.environ.get("MODEL", "gpt-4.1-mini")).strip()
 MODEL_WRITER = os.environ.get("MODEL_WRITER", os.environ.get("MODEL", "gpt-4.1-mini")).strip()
 
-MIN_CHARS = int(os.environ.get("MIN_CHARS", "4200"))
-MIN_SECTION_CHARS = int(os.environ.get("MIN_SECTION_CHARS", "420"))
+MIN_CHARS = int(os.environ.get("MIN_CHARS", "8400"))
+MIN_SECTION_CHARS = int(os.environ.get("MIN_SECTION_CHARS", "840"))
 MAX_KEYWORD_TRIES = int(os.environ.get("MAX_KEYWORD_TRIES", "12"))
 MAX_GENERATE_ATTEMPTS = int(os.environ.get("MAX_GENERATE_ATTEMPTS", "5"))
 
@@ -1370,10 +1370,12 @@ Schema:
 Hard rules:
 - Use the section_plan exactly as the structural backbone
 - Preserve the same number of sections as in section_plan
-- Total text must be at least {MIN_CHARS} characters
 - Each section must be materially useful
+- Total text must be at least {MIN_CHARS} characters
+- Aim for 9000 to 11000 characters when the topic supports it
 - Each section body must be at least {MIN_SECTION_CHARS} characters
-- The article must explicitly include these exact words in natural sentences:
+- Most sections should be longer than the minimum
+- Use concrete examples, mini-scenarios, edge cases, and decision logic in every section- The article must explicitly include these exact words in natural sentences:
   workflow, checklist, mistake, tradeoff, decision, step
 - The article must explicitly include:
   - who this workflow is for
@@ -2185,7 +2187,11 @@ def build_image_asset_for_section(
     folder = ASSETS_POSTS_DIR / slug
     folder.mkdir(parents=True, exist_ok=True)
 
-    clean_query = image_query or heading or "workspace desk laptop"
+    clean_query = " ".join([
+        (post_title or "").strip(),
+        (image_query or "").strip(),
+        (heading or "").strip(),
+    ]).strip() or "modern office workspace laptop notes"
     alt_text = alt_hint or build_image_alt(heading, heading, clean_query)
 
     should_try_external = len(clean_query.split()) >= 1
